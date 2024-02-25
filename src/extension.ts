@@ -8,6 +8,7 @@ import { MessageProcessor } from './MessageProcessor';
 import { WebSocketConstants } from './WebSocketConstants';
 import * as path from 'path';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
+import { MiningRulesProcessor } from './MiningRulesProcessor';
 
 
 //const readFileAsync = promisify(fs.readFile);
@@ -133,17 +134,6 @@ doiClass.getVisitedElements()}
                                 data: ""
                             }));
 
-
-
-
-
-
-
-
-
-
-
-
                         }
                     }));
 
@@ -158,22 +148,21 @@ doiClass.getVisitedElements()}
             ws.on('message', (message: string) => {
                 console.log(`Received message: ${message}`);
                 const faw = FollowAndAuthorRulesProcessor.getInstance();
+                const mr = MiningRulesProcessor.getInstance();
                 try {
                     const json = JSON.parse(message.toString());
                     console.log("Command:", json.command);
                     console.log("Data:", json.data);
-                    // Accessing deeper properties
-                    /*
-                    console.log("Tag ID:", json.data.tagID);
-                    console.log("Tag Info:", json.data.tagInfo);
-                    console.log("Tag Name:", json.data.tagInfo.tagName);
-                    console.log("Tag Detail:", json.data.tagInfo.detail);
-                    */
+
 
                     if (faw.wsMessages.includes(json.command)) {
                         console.log('Received a recognized command:', json.command);
                         faw.processReceivedMessages(message);
                         // Handle the command as needed
+                    }
+                    else if (mr.wsMessages.includes(json.command)) {
+                        console.log("in MR");
+                        mr.processReceivedMessages(message);
                     }
                 } catch (e) {
                     console.error("Error parsing JSON:", e);
