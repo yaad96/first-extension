@@ -133,6 +133,7 @@ export class MiningRulesProcessor {
                 break;
 
             case WebSocketConstants.RECEIVE_MINE_DESIGN_RULES_MSG:
+                
                 break;
         }
     }
