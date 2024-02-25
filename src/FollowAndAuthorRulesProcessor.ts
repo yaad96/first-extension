@@ -162,7 +162,7 @@ export class FollowAndAuthorRulesProcessor {
                         this.ws?.send(MessageProcessor.encodeData({
                             command:WebSocketConstants.SEND_XML_FROM_CODE_MSG,
                             data:{
-                                xmlTest:xmlContent,
+                                xmlText:xmlContent,
                                 messageID:jsonData.data.messageID
                             }
                         }));

@@ -10,16 +10,30 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:first-extension.helloWorld"
-  ],
+    "onStartupFinished"
+]
+,
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "first-extension.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "extension.mineRules",
+        "title": "Mine Rules"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorTextFocus",
+          "command": "extension.mineRules",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -7,7 +7,7 @@ import { generateProjectHierarchyAsJSON } from './utilites'; // Removed extra se
 import { MessageProcessor } from './MessageProcessor';
 import { WebSocketConstants } from './WebSocketConstants';
 import * as path from 'path';
-import { FollowAndAuthorRulesProcessor} from './FollowAndAuthorRulesProcessor';
+import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 
 
 //const readFileAsync = promisify(fs.readFile);
@@ -77,6 +77,76 @@ export function activate(context: vscode.ExtensionContext) {
                         data: ""
                     }));
 
+                    // Adding "Mine Rules" command functionality
+                    context.subscriptions.push(vscode.commands.registerCommand('extension.mineRules', () => {
+                        const editor = vscode.window.activeTextEditor;
+                        if (editor) {
+                            const document = editor.document;
+                            const selection = editor.selection;
+                            const wordRange = document.getWordRangeAtPosition(selection.start);
+                            if (!wordRange) {
+                                vscode.window.showInformationMessage("No word selected");
+                                return;
+                            }
+                            const word = document.getText(wordRange);
+                            const startOffset = document.offsetAt(wordRange.start);
+                            const startLineOffset = wordRange.start.character;
+                            const lineNumber = wordRange.start.line + 1; // VS Code lines are zero-based
+
+                            /*const info = {
+                                command: "ELEMENT_INFO_FOR_MINE_RULES",
+                                data: {
+                                    filePath: document.uri.fsPath,
+                                    startOffset: startOffset.toString(),
+                                    startLineOffset: startLineOffset.toString(),
+                                    lineNumber: lineNumber.toString(),
+                                    text: word
+                                }
+                            };*/
+
+                            const minigDataInfo = {
+                                filePath: document.uri.fsPath,
+                                startOffset: startOffset.toString(),
+                                startLineOffset: startLineOffset.toString(),
+                                lineNumber: lineNumber.toString(),
+                                text: word
+                            };
+
+                            ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_ELEMENT_INFO_FOR_MINE_RULES,
+                                data: minigDataInfo
+                            }));
+
+
+                            /* doi processing  has to  be imitated -
+
+            DoiProcessing doiClass = DoiProcessing.getInstance();
+FileChangeManager.getInstance().sendMessage(MessageProcessor.encodeData(new Object[]{
+WebSocketConstants.SEND_DOI_INFORMATION, MessageProcessor.encodeDoiInformation(
+new Object[]{doiClass.getVisitedFiles(), doiClass.getSearchHistory(),
+doiClass.getVisitedElements()}
+)}).toString());
+*/
+
+                            ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_REQUEST_MINE_RULES_FOR_ELEMENT,
+                                data: ""
+                            }));
+
+
+
+
+
+
+
+
+
+
+
+
+                        }
+                    }));
+
 
 
 
@@ -89,7 +159,7 @@ export function activate(context: vscode.ExtensionContext) {
                 console.log(`Received message: ${message}`);
                 const faw = FollowAndAuthorRulesProcessor.getInstance();
                 try {
-                    const json= JSON.parse(message.toString());
+                    const json = JSON.parse(message.toString());
                     console.log("Command:", json.command);
                     console.log("Data:", json.data);
                     // Accessing deeper properties
@@ -108,7 +178,7 @@ export function activate(context: vscode.ExtensionContext) {
                 } catch (e) {
                     console.error("Error parsing JSON:", e);
                 }
-                
+
 
 
 
