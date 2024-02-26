@@ -112,15 +112,20 @@ export class FollowAndAuthorRulesProcessor {
                 try {
                     const positionString = await findLineNumber(tempXmlFilePath);
                     // Calculate the position based on the XML length
-                    
                     const positionIndex = positionString.length;
 
-                    // Find the position in the document to highlight
-                    const startPosition = document.positionAt(positionIndex);
-                    const endPosition = new vscode.Position(startPosition.line + 1, 0);
+                    // Find the position in the document
+                    const charPosition = document.positionAt(positionIndex);
 
-                    // Move the cursor and highlight the code
-                    editor.selection = new vscode.Selection(startPosition,endPosition);
+                    // Get the entire line where the character is located
+                    const line = document.lineAt(charPosition.line);
+
+                    // Use the start and end of the line for startPosition and endPosition
+                    const startPosition = line.range.start;
+                    const endPosition = line.range.end;
+
+                    // Move the cursor and highlight the whole line
+                    editor.selection = new vscode.Selection(startPosition, endPosition);
                     editor.revealRange(new vscode.Range(startPosition, endPosition), vscode.TextEditorRevealType.InCenter);
                 } catch (error) {
                     console.error("An error occurred:");
