@@ -3,10 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { Constants } from '../../Constants';
 
 const execAsync = promisify(exec);
 
-class LearnDesignRules {
+export class LearnDesignRules {
     private static filePrefix: { [key: string]: string } = {
         "FPMax": "AttributeEncoding",
         "FPClose": "AttributeEncoding",
@@ -15,8 +16,8 @@ class LearnDesignRules {
     };
     private static timeoutInSeconds = 5;
 
-    public static async analyzeDatabases(projectPath: string, params: Array<string>, directory: string, algorithm: string): Promise<any> {
-        const fullPath = path.join(projectPath, directory);
+    public static async analyzeDatabases(projectPath: string, params: Array<string>, algorithm: string): Promise<any> {
+        const fullPath = path.join(projectPath, Constants.LEARNING_DR_DIRECTORY);
         if (!fs.existsSync(fullPath)) {
             fs.mkdirSync(fullPath);
         }
@@ -39,9 +40,16 @@ class LearnDesignRules {
         });
 
         for (const file of fileList) {
-            const inputFile = path.join(fullPath, file);
-            const outputFile = path.join(fullPath, `output_${file}`);
-            const command = `java -jar ${path.join(projectPath, "/spmf.jar")} run ${algorithm} ${inputFile} ${outputFile} ${params.join(" ")}`;
+            //very important as the workspace path might have space in its directory name
+            const spmfJarPath = `"${path.join(projectPath, "spmf.jar")}"`;
+            const inputFile = `"${path.join(fullPath, file)}"`;
+            const outputFile = `"${path.join(fullPath, `output_${file}`)}"`;
+
+            const command = `java -jar ${spmfJarPath} run ${algorithm} ${inputFile} ${outputFile} ${params.join(" ")}`;
+
+
+            console.log(`Command: ${command}`);
+
 
             try {
                 await execAsync(command, { timeout: this.timeoutInSeconds * 1000 });

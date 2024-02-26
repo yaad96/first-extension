@@ -8,12 +8,13 @@ import { Constants } from './Constants';
 import * as fs1 from 'fs';
 import { FileChangeManager } from './FileChangeManager';
 import { writeToFile, convertToXML } from './utilites';
+import { LearnDesignRules } from './core/model/LearnDesignRules';
 
 export class MiningRulesProcessor {
     private static instance: MiningRulesProcessor | null = null;
     private ws: WebSocket | null;
     private currentProjectPath: string;
-    private learningDRPath:string; 
+    private learningDRPath: string;
 
     public readonly wsMessages: string[] = [
         //delete the content of the directory, the directory = drlearning in the root directory
@@ -38,7 +39,7 @@ export class MiningRulesProcessor {
     public constructor(currentProjectPath: string, ws: WebSocket | null) {
         this.currentProjectPath = currentProjectPath;
         this.ws = ws;
-        this.learningDRPath= path.join(this.currentProjectPath, Constants.LEARNING_DR_DIRECTORY);
+        this.learningDRPath = path.join(this.currentProjectPath, Constants.LEARNING_DR_DIRECTORY);
 
     }
 
@@ -52,7 +53,7 @@ export class MiningRulesProcessor {
     public updateProjectWs(projectPath: string, ws: WebSocket): void {
         this.currentProjectPath = projectPath;
         this.ws = ws;
-        this.learningDRPath= path.join(this.currentProjectPath, Constants.LEARNING_DR_DIRECTORY);
+        this.learningDRPath = path.join(this.currentProjectPath, Constants.LEARNING_DR_DIRECTORY);
 
     }
 
@@ -61,26 +62,26 @@ export class MiningRulesProcessor {
         const filePath = path.join(this.learningDRPath, fileName);
 
         console.log(filePath);
-    
+
         try {
-          // Ensure the directory exists, if not, creates a one
-          await fs.mkdir(this.learningDRPath, { recursive: true });
-    
-          // Decide to append or overwrite based on file existence
-          try {
-            await fs.access(filePath); // Check if file exists
-            // If no error, file exists. Append to the file.
-            await fs.appendFile(filePath, content, { encoding: 'utf8' });
-            console.log(`Data successfully appended to ${fileName}`);
-          } catch {
-            // If error, file does not exist. Overwrite/create the file.
-            await fs.writeFile(filePath, content, { encoding: 'utf8' });
-            console.log(`Data successfully written to ${fileName}`);
-          }
+            // Ensure the directory exists, if not, creates a one
+            await fs.mkdir(this.learningDRPath, { recursive: true });
+
+            // Decide to append or overwrite based on file existence
+            try {
+                await fs.access(filePath); // Check if file exists
+                // If no error, file exists. Append to the file.
+                await fs.appendFile(filePath, content, { encoding: 'utf8' });
+                console.log(`Data successfully appended to ${fileName}`);
+            } catch {
+                // If error, file does not exist. Overwrite/create the file.
+                await fs.writeFile(filePath, content, { encoding: 'utf8' });
+                console.log(`Data successfully written to ${fileName}`);
+            }
         } catch (err) {
-          console.error(`Error handling file operation for ${fileName}: ${err}`);
+            console.error(`Error handling file operation for ${fileName}: ${err}`);
         }
-      }
+    }
 
     public async processReceivedMessages(message: string): Promise<void> {
         const jsonData = JSON.parse(message.toString());
@@ -105,7 +106,7 @@ export class MiningRulesProcessor {
                   ["feature2.txt", "Feature 2 data..."]
                 ]
               }*/
-              
+
             case WebSocketConstants.RECEIVE_LEARN_DESIGN_RULES_DATABASES_MSG:
             case WebSocketConstants.RECEIVE_LEARN_DESIGN_RULES_FEATURES_MSG:
             case WebSocketConstants.LEARN_DESIGN_RULES_HELPER_FILES_MSG:
@@ -114,8 +115,8 @@ export class MiningRulesProcessor {
                 filePathData.forEach((item: any[]) => {
                     const filePath = item[0];
                     const fileData = item[1];
-                    this.writeDataToFileLearningDR(filePath,fileData);
-                });  
+                    this.writeDataToFileLearningDR(filePath, fileData);
+                });
 
                 break;
 
@@ -127,13 +128,27 @@ export class MiningRulesProcessor {
                 filePathData.forEach((item: any[]) => {
                     const filePath = item[0];
                     const fileData = item[1];
-                    this.writeDataToFileLearningDR(filePath,fileData);
-                });  
+                    this.writeDataToFileLearningDR(filePath, fileData);
+                });
 
                 break;
 
             case WebSocketConstants.RECEIVE_MINE_DESIGN_RULES_MSG:
-                
+                LearnDesignRules.analyzeDatabases(this.currentProjectPath, jsonData.data.parameters, jsonData.data.algorithm)
+                    .then((results: { [key: string]: string }) => {
+                        console.log("Analysis Results:", results);
+                        this.ws?.send(MessageProcessor.encodeData({
+                            command:WebSocketConstants.SEND_MINED_DESIGN_RULES,
+                            data:{
+                                algorithm:jsonData.data.algorithm,
+                                minedFrequentItemSets:results
+                            }
+                        }));
+
+                    })
+                    .catch((error: any) => {
+                        console.error("Error during analysis:", error);
+                    });
                 break;
         }
     }

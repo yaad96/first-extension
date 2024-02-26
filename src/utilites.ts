@@ -2,59 +2,59 @@ import * as vscode from 'vscode';
 import { exec } from "child_process";
 import * as path from 'path';
 import { writeFile } from 'fs/promises';
+import { Constants } from './Constants';
 
 
 export async function writeToFile(filePath: string, exprText: string): Promise<void> {
   try {
-      await writeFile(filePath, exprText, 'utf-8');
-      console.log("File written successfully");
+    await writeFile(filePath, exprText, 'utf-8');
+    console.log("File written successfully");
   } catch (e) {
-      console.error("Error in writing the result xml", e);
+    console.error("Error in writing the result xml", e);
   }
 }
 
 export function convertToXML(inputFilePath: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-      // Adjust the command to output XML to stdout
-      const command = `srcml "${inputFilePath}"`;
-      exec(command, (error, stdout, stderr) => {
-          if (error) {
-              //console.error(`Error executing srcML for file ${inputFilePath}:`, error);
-              reject(error);
-          } else if (stderr) {
-              console.error(`Error in srcML output for file ${inputFilePath}:`, stderr);
-              reject(new Error(stderr));
-          } else {
-              //console.log(`Converted to XML: ${inputFilePath}`);
-              resolve(stdout); // stdout contains the XML content
-          }
-      });
+    // Adjust the command to output XML to stdout
+    const command = `srcml "${inputFilePath}"`;
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        //console.error(`Error executing srcML for file ${inputFilePath}:`, error);
+        reject(error);
+      } else if (stderr) {
+        console.error(`Error in srcML output for file ${inputFilePath}:`, stderr);
+        reject(new Error(stderr));
+      } else {
+        //console.log(`Converted to XML: ${inputFilePath}`);
+        resolve(stdout); // stdout contains the XML content
+      }
+    });
   });
 }
 
-/*
-export function runSrcML(inputFilePath: string, outputFilePath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const command = `srcml "${inputFilePath}" -o "${outputFilePath}"`;
+export function findLineNumber(xmlFilePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // Construct the command
+    const command = `"${Constants.SRCML_BIN_PATH}" --unit 1 "${xmlFilePath}"`;
 
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Error executing srcML: ${error}`);
-                return reject(error);
-            }
-            if (stderr) {
-                console.error(`stderr from srcML: ${stderr}`);
-                return reject(stderr);
-            }
-            console.log(`srcML output: ${stdout}`);
-            resolve();
-        });
+    // Execute the command
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Execution error: ${error}`);
+        return reject(error);
+      }
+      if (stderr) {
+        console.error(`Error: ${stderr}`);
+        return reject(stderr);
+      }
+      resolve(stdout); // Resolve the promise with the command's output
     });
+  });
 }
-*/
 
 
-export function getInitialRuleTable(Project:String):Map<string,string>{
+export function getInitialRuleTable(Project: String): Map<string, string> {
   const myMap = new Map<string, string>();
 
   // Add some key-value pairs to the map
@@ -66,7 +66,7 @@ export function getInitialRuleTable(Project:String):Map<string,string>{
   return myMap;
 }
 
-export function getInitialTagTable(Project:String):Map<string,string>{
+export function getInitialTagTable(Project: String): Map<string, string> {
   const myMap = new Map<string, string>();
 
   // Add some key-value pairs to the map

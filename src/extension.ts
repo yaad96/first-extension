@@ -94,17 +94,6 @@ export function activate(context: vscode.ExtensionContext) {
                             const startLineOffset = wordRange.start.character;
                             const lineNumber = wordRange.start.line + 1; // VS Code lines are zero-based
 
-                            /*const info = {
-                                command: "ELEMENT_INFO_FOR_MINE_RULES",
-                                data: {
-                                    filePath: document.uri.fsPath,
-                                    startOffset: startOffset.toString(),
-                                    startLineOffset: startLineOffset.toString(),
-                                    lineNumber: lineNumber.toString(),
-                                    text: word
-                                }
-                            };*/
-
                             const minigDataInfo = {
                                 filePath: document.uri.fsPath,
                                 startOffset: startOffset.toString(),

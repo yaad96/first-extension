@@ -88,6 +88,9 @@ export class FileChangeManager {
     }
 
     private watchWorkspaceChanges() {
+
+        this.handleActiveTextEditorChange();
+
         vscode.workspace.onDidChangeTextDocument(this.handleChangeTextDocument.bind(this));
         vscode.workspace.onDidCreateFiles(this.handleCreateFile.bind(this));
         vscode.workspace.onDidDeleteFiles(this.handleDeleteFile.bind(this));
@@ -138,6 +141,26 @@ export class FileChangeManager {
             console.error('Failed to generate project hierarchy:', error);
         }
     }
+
+    private handleActiveTextEditorChange() {
+        vscode.window.onDidChangeActiveTextEditor(editor => {
+            if (editor) {
+                const document = editor.document;
+                if (document.languageId === 'java') { // Adjust the condition based on your requirements
+                    const javaFilePath = document.uri.fsPath;
+                    
+                    if(this.ws){
+                        this.ws.send(MessageProcessor.encodeData({
+                            command:WebSocketConstants.SEND_FILE_CHANGE_IN_IDE_MSG,
+                            data: javaFilePath
+                        }));
+                    }
+
+                }
+            }
+        });
+    }
+    
     
 
     private async handleCreateFile(event: vscode.FileCreateEvent) {
