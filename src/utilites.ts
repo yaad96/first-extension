@@ -3,6 +3,8 @@ import { exec } from "child_process";
 import * as path from 'path';
 import { writeFile } from 'fs/promises';
 import { Constants } from './Constants';
+import * as os from 'os';
+
 
 
 export async function writeToFile(filePath: string, exprText: string): Promise<void> {
@@ -34,9 +36,29 @@ export function convertToXML(inputFilePath: string): Promise<string> {
 }
 
 export function findLineNumber(xmlFilePath: string): Promise<string> {
+  const platform = os.platform();
+  console.log(`The system is running on: ${platform}`);
+
+
   return new Promise((resolve, reject) => {
     // Construct the command
-    const command = `"${Constants.SRCML_BIN_PATH}" --unit 1 "${xmlFilePath}"`;
+    const command = "";
+
+
+    if (platform === 'win32') {
+      const command = `"${Constants.SRCML_PATH_WINDOWS}" --unit 1 "${xmlFilePath}"`;
+      console.log('This is a Windows system.');
+    } else if (platform === 'darwin') {
+      const command = `"${Constants.SRCML_PATH_MAC}" --unit 1 "${xmlFilePath}"`;
+      console.log('This is a macOS system.');
+    } else if (platform === 'linux') {
+      const command = `"${Constants.SRCML_PATH_LINUX}" --unit 1 "${xmlFilePath}"`;
+      console.log('This is a Linux system.');
+    } else {
+      console.log('Unknown or unsupported operating system.');
+      return;
+    }
+
 
     // Execute the command
     exec(command, (error, stdout, stderr) => {
@@ -54,29 +76,7 @@ export function findLineNumber(xmlFilePath: string): Promise<string> {
 }
 
 
-export function getInitialRuleTable(Project: String): Map<string, string> {
-  const myMap = new Map<string, string>();
 
-  // Add some key-value pairs to the map
-  myMap.set("key1", "1");
-  myMap.set("key2", "2");
-  myMap.set("key3", "3");
-
-  // Return the map
-  return myMap;
-}
-
-export function getInitialTagTable(Project: String): Map<string, string> {
-  const myMap = new Map<string, string>();
-
-  // Add some key-value pairs to the map
-  myMap.set("key1", "1");
-  myMap.set("key2", "2");
-  myMap.set("key3", "3");
-
-  // Return the map
-  return myMap;
-}
 
 
 

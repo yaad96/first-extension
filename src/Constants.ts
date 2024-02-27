@@ -5,6 +5,8 @@ export const Constants = {
     TEMP_JAVA_FILE: "tempExprFile.java",
     XML_HEADER: "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>",
     LEARNING_DR_DIRECTORY:"/LearningDR",
-    SRCML_BIN_PATH: "C:\\Program Files\\srcML 0.9.5\\bin\\srcml"
+    SRCML_PATH_WINDOWS: "C:\\Program Files\\srcML 0.9.5\\bin\\srcml",
+    SRCML_PATH_MAC: "/usr/local/bin/srcml",
+    SRCML_PATH_LINUX: "/usr/bin/srcml"
 
 };
