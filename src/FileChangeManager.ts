@@ -25,11 +25,11 @@ export class FileChangeManager {
         this.watchWorkspaceChanges();
         if (vscode.workspace.workspaceFolders) {
             //const projectPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-            this.convertAllJavaFilesToXML(this.projectPath).then(() => {
+            /*this.convertAllJavaFilesToXML(this.projectPath).then(() => {
                 console.log('All Java files have been converted to XML and stored.');
                 this.sendXmlFilesSequentially();
                 // Here you can optionally handle the stored XML data, e.g., send via WebSocket
-            }).catch(error => console.error('Error converting Java files to XML:', error));
+            }).catch(error => console.error('Error converting Java files to XML:', error));*/
 
             try {
                 const ins = FollowAndAuthorRulesProcessor.getInstance();
@@ -259,7 +259,7 @@ export class FileChangeManager {
     
 
 
-    private async convertAllJavaFilesToXML(projectPath: string) {
+    public async convertAllJavaFilesToXML(projectPath: string) {
         const javaFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(projectPath, '**/*.java'));
         for (const file of javaFiles) {
             const inputFilePath = file.fsPath;

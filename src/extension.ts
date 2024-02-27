@@ -63,20 +63,28 @@ export function activate(context: vscode.ExtensionContext) {
                         console.error('Failed to generate project hierarchy:', error);
                     }
 
-                    ws.send(MessageProcessor.encodeData({
-                        command: WebSocketConstants.SEND_TAG_TABLE_MSG,
-                        data: FollowAndAuthorRulesProcessor.getInstance().getTagTableForClient()
-                    }));
+                    fileChangeManager.convertAllJavaFilesToXML(projectPath).then(() => {
+                        console.log('All Java files have been converted to XML and stored.');
+                        fileChangeManager.sendXmlFilesSequentially().then(() => {
+                            ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_TAG_TABLE_MSG,
+                                data: FollowAndAuthorRulesProcessor.getInstance().getTagTableForClient()
+                            }));
 
-                    ws.send(MessageProcessor.encodeData({
-                        command: WebSocketConstants.SEND_RULE_TABLE_MSG,
-                        data: FollowAndAuthorRulesProcessor.getInstance().getRuleTableForClient()
-                    }));
+                            ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_RULE_TABLE_MSG,
+                                data: FollowAndAuthorRulesProcessor.getInstance().getRuleTableForClient()
+                            }));
 
-                    ws.send(MessageProcessor.encodeData({
-                        command: WebSocketConstants.SEND_VERIFY_RULES_MSG,
-                        data: ""
-                    }));
+                            ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_VERIFY_RULES_MSG,
+                                data: ""
+                            }));
+                        }).catch(error=>console.error("Error sending xml files : ",error));
+                        // Here you can optionally handle the stored XML data, e.g., send via WebSocket
+                    }).catch(error => console.error('Error converting Java files to XML:', error));
+
+
 
                     // Adding "Mine Rules" command functionality
                     context.subscriptions.push(vscode.commands.registerCommand('extension.mineRules', () => {
