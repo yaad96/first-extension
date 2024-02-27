@@ -27,6 +27,7 @@ export class FileChangeManager {
             //const projectPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
             this.convertAllJavaFilesToXML(this.projectPath).then(() => {
                 console.log('All Java files have been converted to XML and stored.');
+                this.sendXmlFilesSequentially();
                 // Here you can optionally handle the stored XML data, e.g., send via WebSocket
             }).catch(error => console.error('Error converting Java files to XML:', error));
 
@@ -270,6 +271,7 @@ export class FileChangeManager {
                 console.error(`Error converting ${inputFilePath} to XML:`, error);
             }
         }
+        console.log("final number of xmlfiles: ",this.xmlFiles.length);
     }
 
     private convertToXML(inputFilePath: string): Promise<string> {
@@ -278,13 +280,13 @@ export class FileChangeManager {
             const command = `srcml "${inputFilePath}"`;
             exec(command, (error, stdout, stderr) => {
                 if (error) {
-                    //console.error(`Error executing srcML for file ${inputFilePath}:`, error);
+                    console.error(`Error executing srcML for file ${inputFilePath}:`, error);
                     reject(error);
                 } else if (stderr) {
                     console.error(`Error in srcML output for file ${inputFilePath}:`, stderr);
                     reject(new Error(stderr));
                 } else {
-                    //console.log(`Converted to XML: ${inputFilePath}`);
+                    console.log(`Converted to XML: ${inputFilePath}`);
                     resolve(stdout); // stdout contains the XML content
                 }
             });
@@ -298,6 +300,7 @@ export class FileChangeManager {
             console.error('WebSocket is not set or connected.');
             return;
         }
+        console.log("number of xmlfiles: ", this.xmlFiles.length);
 
         for (const { filePath, xmlContent } of this.xmlFiles) {
             const message = JSON.stringify({
@@ -312,7 +315,7 @@ export class FileChangeManager {
                         console.error(`Error sending XML for file ${filePath}:`, error);
                         reject(error); // Stop sending if an error occurs
                     } else {
-                        //console.log(`Sent XML for file ${filePath}`);
+                        console.log(`Sent XML for file ${filePath}`);
                         resolve();
                     }
                 });

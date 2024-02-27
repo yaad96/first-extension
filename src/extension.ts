@@ -57,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
                             data: JSON.stringify(projectHierarchy),
                         }));
 
-                        await fileChangeManager.sendXmlFilesSequentially();
+                        //await fileChangeManager.sendXmlFilesSequentially();
 
                     } catch (error) {
                         console.error('Failed to generate project hierarchy:', error);
