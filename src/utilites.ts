@@ -4,6 +4,8 @@ import * as path from 'path';
 import { writeFile } from 'fs/promises';
 import { Constants } from './Constants';
 import * as os from 'os';
+import * as fs from 'fs';
+
 
 
 
@@ -77,66 +79,79 @@ export function findLineNumber(xmlFilePath: string): Promise<string> {
 
 
 
-
-
-
-
-// Define interfaces for hierarchy structure
-
-
 interface FileProperties {
   canonicalPath: string;
   parent: string;
   name: string;
   isDirectory: boolean;
-  fileType?: string;
-}
-
-interface HierarchyNode {
-  properties: FileProperties;
-  children?: HierarchyNode[];
+  fileType?: string; // Optional, only for files
+  fileName?: string; // Optional, added property for file name including extension
 }
 
 
-
-export async function generateProjectHierarchyAsJSON(): Promise<HierarchyNode | {}> {
-  // Ensure there's at least one workspace folder open
-  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
-    return {};
-  }
-
-  const projectPath = vscode.workspace.workspaceFolders[0].uri;
-  return buildHierarchy(projectPath);
+interface DirectoryJson {
+children: DirectoryJson[];
+properties: FileProperties;
 }
 
-async function buildHierarchy(uri: vscode.Uri): Promise<HierarchyNode> {
-  const children = await vscode.workspace.fs.readDirectory(uri);
-  const hierarchy: HierarchyNode = {
-    properties: {
-      canonicalPath: uri.fsPath,
-      parent: uri.path.split('/').slice(0, -1).join('/') || "",
-      name: uri.path.split('/').pop() || "",
-      isDirectory: true
-    },
-    children: []
-  };
+export function buildFolderHierarchy(rootPath: string): DirectoryJson | null {
+const stats = fs.statSync(rootPath);
+if (!stats.isDirectory()) {
+  return null; // rootPath is not a directory
+}
 
-  for (const [childName, fileType] of children) {
-    const childUri = vscode.Uri.joinPath(uri, childName);
-    if (fileType === vscode.FileType.Directory) {
-      hierarchy.children!.push(await buildHierarchy(childUri));
-    } else {
-      hierarchy.children!.push({
-        properties: {
-          canonicalPath: childUri.fsPath,
-          parent: uri.fsPath,
-          name: childName,
-          isDirectory: false,
-          fileType: fileType === vscode.FileType.File ? "File" : "Other"
-        }
-      });
+const rootDirectory: DirectoryJson = {
+  children: [],
+  properties: {
+    canonicalPath: rootPath,
+    parent: "",
+    name: path.basename(rootPath),
+    isDirectory: true,
+  },
+};
+
+function traverseDirectory(currentPath: string, parentNode: DirectoryJson) {
+  fs.readdirSync(currentPath, { withFileTypes: true }).forEach((dirent) => {
+    const fullPath = path.join(currentPath, dirent.name);
+    const isDirectory = dirent.isDirectory();
+    const childNode: DirectoryJson = {
+      children: [],
+      properties: {
+        canonicalPath: fullPath,
+        parent: currentPath,
+        name: isDirectory ? dirent.name : path.basename(dirent.name, path.extname(dirent.name)),
+        isDirectory: isDirectory,
+        // Include fileName for files
+        ...(isDirectory ? {} : { fileName: dirent.name }) // Conditionally add fileName if it's a file
+      },
+    };
+
+    if (!isDirectory) {
+      // Include fileType for files
+      if (shouldIgnoreFileForProjectHierarchy(fullPath)) return;
+      childNode.properties.fileType = path.extname(dirent.name).substring(1);
     }
-  }
 
-  return hierarchy;
+    parentNode.children.push(childNode);
+
+    // Recursively traverse if it's a directory
+    if (isDirectory) {
+      traverseDirectory(fullPath, childNode);
+    }
+  });
 }
+
+
+traverseDirectory(rootPath, rootDirectory);
+return rootDirectory;
+}
+
+function shouldIgnoreFileForProjectHierarchy(filePath: string): boolean {
+//const TEMP_JAVA_FILE = "Temp.java"; // Adjust this to your temporary Java file's criteria
+// Ignore non-Java files and the specific temporary Java file
+return !filePath.endsWith('.java') || path.basename(filePath) === Constants.TEMP_JAVA_FILE;
+}
+
+
+
+

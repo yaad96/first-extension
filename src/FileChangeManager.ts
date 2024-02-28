@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { readFile } from 'fs/promises';
 import { WebSocketConstants } from './WebSocketConstants';
-import { generateProjectHierarchyAsJSON } from './utilites';
+import { buildFolderHierarchy } from './utilites';
 import { MessageProcessor } from './MessageProcessor';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
@@ -130,17 +130,15 @@ export class FileChangeManager {
     }
 
     private async updateProjectHierarchy() {
-        try {
-            const projectHierarchy = await generateProjectHierarchyAsJSON();
-            if (this.ws) {
-                this.ws.send(MessageProcessor.encodeData({
-                    command: WebSocketConstants.SEND_PROJECT_HIERARCHY_MSG,
-                    data: JSON.stringify(projectHierarchy),
-                }));
-            }
-        } catch (error) {
-            console.error('Failed to generate project hierarchy:', error);
-        }
+        const projectHierarchy = buildFolderHierarchy(this.projectPath); // Assuming this function is properly implemented to use async/await
+
+                        const output = {
+                            command: WebSocketConstants.SEND_PROJECT_HIERARCHY_MSG,
+                            data: projectHierarchy
+                          };
+                        
+                          // Send the project hierarchy data to the connected client
+                          this.ws?.send(JSON.stringify(output));
     }
 
     private handleActiveTextEditorChange() {

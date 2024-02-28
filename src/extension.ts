@@ -3,12 +3,13 @@ import * as WebSocket from 'ws';
 import * as fs from 'fs';
 import { promisify } from 'util';
 import { FileChangeManager } from './FileChangeManager'; // Ensure correct path is used
-import { generateProjectHierarchyAsJSON } from './utilites'; // Removed extra semicolon and corrected typo
+import { buildFolderHierarchy } from './utilites'; // Removed extra semicolon and corrected typo
 import { MessageProcessor } from './MessageProcessor';
 import { WebSocketConstants } from './WebSocketConstants';
 import * as path from 'path';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
+
 
 
 //const readFileAsync = promisify(fs.readFile);
@@ -51,11 +52,15 @@ export function activate(context: vscode.ExtensionContext) {
 
 
                     try {
-                        const projectHierarchy = await generateProjectHierarchyAsJSON(); // Assuming this function is properly implemented to use async/await
-                        ws.send(MessageProcessor.encodeData({
+                        const projectHierarchy = buildFolderHierarchy(projectPath); // Assuming this function is properly implemented to use async/await
+
+                        const output = {
                             command: WebSocketConstants.SEND_PROJECT_HIERARCHY_MSG,
-                            data: JSON.stringify(projectHierarchy),
-                        }));
+                            data: projectHierarchy
+                          };
+                        
+                          // Send the project hierarchy data to the connected client
+                          ws.send(JSON.stringify(output));
 
                         //await fileChangeManager.sendXmlFilesSequentially();
 
