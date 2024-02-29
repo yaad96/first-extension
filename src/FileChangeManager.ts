@@ -7,7 +7,7 @@ import * as path from 'path';
 import { readFile } from 'fs/promises';
 import { WebSocketConstants } from './WebSocketConstants';
 import { buildFolderHierarchy } from './utilites';
-import { MessageProcessor } from './MessageProcessor';
+//import { MessageProcessor } from './MessageProcessor';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
 
@@ -149,7 +149,7 @@ export class FileChangeManager {
                     const javaFilePath = document.uri.fsPath;
                     
                     if(this.ws){
-                        this.ws.send(MessageProcessor.encodeData({
+                        this.ws.send(JSON.stringify({
                             command:WebSocketConstants.SEND_FILE_CHANGE_IN_IDE_MSG,
                             data: javaFilePath
                         }));

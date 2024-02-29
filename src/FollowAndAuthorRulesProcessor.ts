@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import * as fs from 'fs/promises'; // Use fs/promises for readFile
 import * as path from 'path';
 import { WebSocketConstants } from './WebSocketConstants';
-import { MessageProcessor } from './MessageProcessor';
+//import { MessageProcessor } from './MessageProcessor';
 import { Constants } from './Constants';
 import * as fs1 from 'fs';
 import { FileChangeManager } from './FileChangeManager';
@@ -144,14 +144,14 @@ export class FollowAndAuthorRulesProcessor {
                     this.ruleTable[ruleIndex] = ruleInfo;
                     this.updateRuleTableFile();
 
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_UPDATE_RULE_MSG,
                         data: jsonData.data
                     }));
 
                 }
                 else {
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_FAILED_UPDATE_RULE_MSG,
                         data: jsonData.data
                     }));
@@ -174,14 +174,14 @@ export class FollowAndAuthorRulesProcessor {
                     this.tagTable[tagIndex] = updateTagInfo;
                     this.updateTagTableFile();
 
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_UPDATE_TAG_MSG,
                         data: data
                     }));
 
                 }
                 else {
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_FAILED_UPDATE_TAG_MSG,
                         data: data
                     }));
@@ -198,7 +198,7 @@ export class FollowAndAuthorRulesProcessor {
 
                     try {
                         const xmlContent = await convertToXML(tempJavaFilePath); // Adjusted call
-                        this.ws?.send(MessageProcessor.encodeData({
+                        this.ws?.send(JSON.stringify({
                             command: WebSocketConstants.SEND_XML_FROM_CODE_MSG,
                             data: {
                                 xmlText: xmlContent,
@@ -224,7 +224,7 @@ export class FollowAndAuthorRulesProcessor {
                 const ruleAlreadyExists = this.checkRuleExists(newRuleID, newRuleInfo);
                 if (ruleAlreadyExists) {
 
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_FAILED_NEW_RULE_MSG,
                         data: jsonData.data
                     }));
@@ -234,7 +234,7 @@ export class FollowAndAuthorRulesProcessor {
                     //console.log("here");
                     this.ruleTable.push(newRuleInfo);
                     this.updateRuleTableFile();
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_NEW_RULE_MSG,
                         data: jsonData.data
                     }));
@@ -257,7 +257,7 @@ export class FollowAndAuthorRulesProcessor {
                 if (tagAlreadyExists) {
 
 
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_FAILED_NEW_TAG_MSG,
                         data: data
                     }));
@@ -267,7 +267,7 @@ export class FollowAndAuthorRulesProcessor {
                 else {
                     this.tagTable.push(newTagInfo);
                     this.updateTagTableFile();
-                    this.ws?.send(MessageProcessor.encodeData({
+                    this.ws?.send(JSON.stringify({
                         command: WebSocketConstants.SEND_NEW_TAG_MSG,
                         data: data
                     }));

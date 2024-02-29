@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { promisify } from 'util';
 import { FileChangeManager } from './FileChangeManager'; // Ensure correct path is used
 import { buildFolderHierarchy } from './utilites'; // Removed extra semicolon and corrected typo
-import { MessageProcessor } from './MessageProcessor';
+//import { MessageProcessor } from './MessageProcessor';
 import { WebSocketConstants } from './WebSocketConstants';
 import * as path from 'path';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
@@ -38,17 +38,27 @@ export function activate(context: vscode.ExtensionContext) {
                     const projectPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
                     const fileChangeManager = FileChangeManager.getInstance(projectPath, ws);
 
-                    ws.send(MessageProcessor.encodeData({
+
+
+                    /*ws.send(MessageProcessor.encodeData({
                         command: WebSocketConstants.SEND_ENTER_CHAT_MSG,
                         data: " is connected to ActiveDocumentation",
+                    }));*/
+
+                    ws.send(JSON.stringify({
+                        command:WebSocketConstants.SEND_ENTER_CHAT_MSG,
+                        data:"Project is connected to activedoc"
                     }));
 
-
-                    ws.send(MessageProcessor.encodeData({
+                    /*ws.send(MessageProcessor.encodeData({
                         command: WebSocketConstants.SEND_PROJECT_PATH_MSG,
                         data: projectPath,
-                    }));
+                    }));*/
 
+                    ws.send(JSON.stringify({
+                        command:WebSocketConstants.SEND_PROJECT_PATH_MSG,
+                        data:projectPath
+                    }));
 
 
                     try {
@@ -71,17 +81,29 @@ export function activate(context: vscode.ExtensionContext) {
                     fileChangeManager.convertAllJavaFilesToXML(projectPath).then(() => {
                         console.log('All Java files have been converted to XML and stored.');
                         fileChangeManager.sendXmlFilesSequentially().then(() => {
-                            ws.send(MessageProcessor.encodeData({
+                            /*ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_TAG_TABLE_MSG,
+                                data: FollowAndAuthorRulesProcessor.getInstance().getTagTableForClient()
+                            }));*/
+                            ws.send(JSON.stringify({
                                 command: WebSocketConstants.SEND_TAG_TABLE_MSG,
                                 data: FollowAndAuthorRulesProcessor.getInstance().getTagTableForClient()
                             }));
 
-                            ws.send(MessageProcessor.encodeData({
+                            /*ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_RULE_TABLE_MSG,
+                                data: FollowAndAuthorRulesProcessor.getInstance().getRuleTableForClient()
+                            }));*/
+                            ws.send(JSON.stringify({
                                 command: WebSocketConstants.SEND_RULE_TABLE_MSG,
                                 data: FollowAndAuthorRulesProcessor.getInstance().getRuleTableForClient()
                             }));
 
-                            ws.send(MessageProcessor.encodeData({
+                            /*ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_VERIFY_RULES_MSG,
+                                data: ""
+                            }));*/
+                            ws.send(JSON.stringify({
                                 command: WebSocketConstants.SEND_VERIFY_RULES_MSG,
                                 data: ""
                             }));
@@ -115,7 +137,12 @@ export function activate(context: vscode.ExtensionContext) {
                                 text: word
                             };
 
-                            ws.send(MessageProcessor.encodeData({
+                            /*ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_ELEMENT_INFO_FOR_MINE_RULES,
+                                data: minigDataInfo
+                            }));*/
+
+                            ws.send(JSON.stringify({
                                 command: WebSocketConstants.SEND_ELEMENT_INFO_FOR_MINE_RULES,
                                 data: minigDataInfo
                             }));
@@ -131,7 +158,11 @@ doiClass.getVisitedElements()}
 )}).toString());
 */
 
-                            ws.send(MessageProcessor.encodeData({
+                            /*ws.send(MessageProcessor.encodeData({
+                                command: WebSocketConstants.SEND_REQUEST_MINE_RULES_FOR_ELEMENT,
+                                data: ""
+                            }));*/
+                            ws.send(JSON.stringify({
                                 command: WebSocketConstants.SEND_REQUEST_MINE_RULES_FOR_ELEMENT,
                                 data: ""
                             }));

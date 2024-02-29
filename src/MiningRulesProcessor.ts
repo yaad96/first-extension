@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import * as fs from 'fs/promises'; // Use fs/promises for readFile
 import * as path from 'path';
 import { WebSocketConstants } from './WebSocketConstants';
-import { MessageProcessor } from './MessageProcessor';
+//import { MessageProcessor } from './MessageProcessor';
 import { Constants } from './Constants';
 import * as fs1 from 'fs';
 import { FileChangeManager } from './FileChangeManager';
@@ -137,7 +137,7 @@ export class MiningRulesProcessor {
                 LearnDesignRules.analyzeDatabases(this.currentProjectPath, jsonData.data.parameters, jsonData.data.algorithm)
                     .then((results: { [key: string]: string }) => {
                         console.log("Analysis Results:", results);
-                        this.ws?.send(MessageProcessor.encodeData({
+                        this.ws?.send(JSON.stringify({
                             command:WebSocketConstants.SEND_MINED_DESIGN_RULES,
                             data:{
                                 algorithm:jsonData.data.algorithm,
