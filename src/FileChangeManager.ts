@@ -10,6 +10,7 @@ import { buildFolderHierarchy } from './utilites';
 //import { MessageProcessor } from './MessageProcessor';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
+import { DoiProcessing } from './DoiProcessing';
 
 const readFileAsync = promisify(fs.readFile);
 
@@ -72,10 +73,34 @@ export class FileChangeManager {
                     // Handle or log the error appropriately
                 }
             }
+            try {
+                const ins = DoiProcessing.getInstance();
+                if (!ins) {
+                    // If getInstance() returned null, we create a new instance
+                    // But since our getInstance never returns null (creates a new instance if null),
+                    // This check is just for demonstrating a similar approach to catching NullPointerException in Java.
+                    throw new Error('Instance is null'); // Simulating a scenario to create a new instance
+                }
+                ins.updateProjectWs(this.projectPath, this.ws);
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Instance is null') {
+                    // This block is for handling the specific error thrown above,
+                    // simulating the catch for NullPointerException in Java.
+                    // In practical TypeScript, this pattern is rarely needed due to the dynamic nature of JS and the way we handle nulls/undefined values.
+                    new DoiProcessing(projectPath, this.ws); // Assuming this will set the instance internally or perform necessary actions
+                } else {
+                    console.error("An unexpected error occurred:", error);
+                    // Handle or log the error appropriately
+                }
+            }
             
 
         }
     }
+
+    /*public void checkChangedProject(){
+
+    }*/
 
     public static getInstance(projectPath:string,ws:WebSocket): FileChangeManager {
         if (!FileChangeManager.instance) {
@@ -84,9 +109,7 @@ export class FileChangeManager {
         return FileChangeManager.instance;
     }
 
-    public setWebSocket(ws: WebSocket) {
-        this.ws = ws;
-    }
+
 
     private watchWorkspaceChanges() {
 

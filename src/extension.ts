@@ -9,6 +9,7 @@ import { WebSocketConstants } from './WebSocketConstants';
 import * as path from 'path';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
+import { DoiProcessing } from './DoiProcessing';
 
 
 
@@ -30,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
         server.on('connection', (ws) => {
 
             console.log('Client connected');
-            //fileChangeManager.setWebSocket(ws);
+            
 
             (async () => { // Immediately Invoked Function Expression (IIFE) for async
                 if (vscode.workspace.workspaceFolders) {
@@ -137,31 +138,26 @@ export function activate(context: vscode.ExtensionContext) {
                                 text: word
                             };
 
-                            /*ws.send(MessageProcessor.encodeData({
-                                command: WebSocketConstants.SEND_ELEMENT_INFO_FOR_MINE_RULES,
-                                data: minigDataInfo
-                            }));*/
 
                             ws.send(JSON.stringify({
                                 command: WebSocketConstants.SEND_ELEMENT_INFO_FOR_MINE_RULES,
                                 data: minigDataInfo
                             }));
 
+                            const doiProcessing = DoiProcessing.getInstance();
 
-                            /* doi processing  has to  be imitated -
+                            const doiData = {
+                                recentVisitedFiles:doiProcessing.getVisitedFiles(),
+                                recentSearches:[],
+                                recentElements:[]
+                            };
 
-            DoiProcessing doiClass = DoiProcessing.getInstance();
-FileChangeManager.getInstance().sendMessage(MessageProcessor.encodeData(new Object[]{
-WebSocketConstants.SEND_DOI_INFORMATION, MessageProcessor.encodeDoiInformation(
-new Object[]{doiClass.getVisitedFiles(), doiClass.getSearchHistory(),
-doiClass.getVisitedElements()}
-)}).toString());
-*/
+                            ws.send(JSON.stringify({
+                                command:WebSocketConstants.SEND_DOI_INFORMATION,
+                                data:doiData
+                            }));
 
-                            /*ws.send(MessageProcessor.encodeData({
-                                command: WebSocketConstants.SEND_REQUEST_MINE_RULES_FOR_ELEMENT,
-                                data: ""
-                            }));*/
+
                             ws.send(JSON.stringify({
                                 command: WebSocketConstants.SEND_REQUEST_MINE_RULES_FOR_ELEMENT,
                                 data: ""
