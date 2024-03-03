@@ -15,7 +15,7 @@ import { DoiProcessing } from './DoiProcessing';
 
 //const readFileAsync = promisify(fs.readFile);
 
-const port = 9000;
+const port = 8887;
 
 
 
@@ -175,17 +175,17 @@ export function activate(context: vscode.ExtensionContext) {
             })().catch(error => console.error('Error in WebSocket connection handler:', error));
 
             ws.on('message', (message: string) => {
-                console.log(`Received message: ${message}`);
+                //console.log(`Received message: ${message}`);
                 const faw = FollowAndAuthorRulesProcessor.getInstance();
                 const mr = MiningRulesProcessor.getInstance();
                 try {
                     const json = JSON.parse(message.toString());
-                    console.log("Command:", json.command);
-                    console.log("Data:", json.data);
+                    //console.log("Command:", json.command);
+                    //console.log("Data:", json.data);
 
 
                     if (faw.wsMessages.includes(json.command)) {
-                        console.log('Received a recognized command:', json.command);
+                        //console.log('Received a recognized command:', json.command);
                         faw.processReceivedMessages(message);
                         // Handle the command as needed
                     }

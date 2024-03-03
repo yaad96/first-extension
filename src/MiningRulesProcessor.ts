@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import WebSocket from 'ws';
-import * as fs from 'fs/promises'; // Use fs/promises for readFile
+import * as fs from 'fs'; // Use fs/promises for readFile
 import * as path from 'path';
 import { WebSocketConstants } from './WebSocketConstants';
 //import { MessageProcessor } from './MessageProcessor';
@@ -61,21 +61,21 @@ export class MiningRulesProcessor {
         //const directoryName = path.join(this.projectPath, this.directory);
         const filePath = path.join(this.learningDRPath, fileName);
 
-        console.log(filePath);
+        console.log("File Path: ",filePath);
 
         try {
             // Ensure the directory exists, if not, creates a one
-            await fs.mkdir(this.learningDRPath, { recursive: true });
+            fs.mkdirSync(this.learningDRPath, { recursive: true });
 
             // Decide to append or overwrite based on file existence
             try {
-                await fs.access(filePath); // Check if file exists
+                fs.accessSync(filePath); // Check if file exists
                 // If no error, file exists. Append to the file.
-                await fs.appendFile(filePath, content, { encoding: 'utf8' });
+                fs.appendFileSync(filePath, content, { encoding: 'utf8' });
                 console.log(`Data successfully appended to ${fileName}`);
             } catch {
                 // If error, file does not exist. Overwrite/create the file.
-                await fs.writeFile(filePath, content, { encoding: 'utf8' });
+                fs.writeFileSync(filePath, content, { encoding: 'utf8' });
                 console.log(`Data successfully written to ${fileName}`);
             }
         } catch (err) {
@@ -92,7 +92,7 @@ export class MiningRulesProcessor {
             //delete the content of the directory, the directory = drlearning in the root directory
             case WebSocketConstants.RECEIVE_REFRESH_LEARN_DESIGN_RULES_DIRECTORY_MSG:
                 try {
-                    await fs.rm(this.learningDRPath, { recursive: true, force: true });
+                    fs.rmSync(this.learningDRPath, { recursive: true, force: true });
                     console.log(`${this.learningDRPath} was successfully deleted.`);
                 } catch (err) {
                     console.error(`Failed to delete ${this.learningDRPath}:`, err);

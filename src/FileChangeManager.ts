@@ -132,7 +132,7 @@ export class FileChangeManager {
                 if (error) {
                     console.error(`Error sending XML for file ${javaFilePath}:`, error);
                 }
-                else { console.log(`Successfully sent XML for file ${javaFilePath}`); }
+                //else { console.log(`Successfully sent XML for file ${javaFilePath}`); }
             });
 
             const check_rule_messaage = JSON.stringify({
@@ -144,7 +144,7 @@ export class FileChangeManager {
                 if (error) {
                     console.error(`Error sending check_rule_message for file ${javaFilePath}:`, error);
                 }
-                else { console.log(`Successfully sent check_rule_message for file ${javaFilePath}`); }
+                //else { console.log(`Successfully sent check_rule_message for file ${javaFilePath}`); }
             });
 
             // sendMessage(MessageProcessor.encodeData(new Object[]{WebSocketConstants.SEND_CHECK_RULES_FOR_FILE_MSG,
