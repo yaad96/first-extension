@@ -70,7 +70,7 @@ export class DoiProcessing{
             }
         }
 
-        this.timedVisitedFiles.push({ timeStamp, filePath: newFilePath });
+        this.timedVisitedFiles.push({ timeStamp, filePath: newFilePath.replace(/\\/g, '/') });
     }
 
 

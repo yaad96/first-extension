@@ -6,7 +6,7 @@ import { FileChangeManager } from './FileChangeManager'; // Ensure correct path 
 import { buildFolderHierarchy } from './utilites'; // Removed extra semicolon and corrected typo
 //import { MessageProcessor } from './MessageProcessor';
 import { WebSocketConstants } from './WebSocketConstants';
-import * as path from 'path';
+
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
 import { DoiProcessing } from './DoiProcessing';
@@ -15,7 +15,7 @@ import { DoiProcessing } from './DoiProcessing';
 
 //const readFileAsync = promisify(fs.readFile);
 
-const port = 9000;
+const port = 8887;
 
 
 
@@ -36,7 +36,8 @@ export function activate(context: vscode.ExtensionContext) {
             (async () => { // Immediately Invoked Function Expression (IIFE) for async
                 if (vscode.workspace.workspaceFolders) {
 
-                    const projectPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+                    var projectPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+                    projectPath = projectPath.replace(/\\/g, '/');
                     const fileChangeManager = FileChangeManager.getInstance(projectPath, ws);
 
 

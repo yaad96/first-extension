@@ -126,7 +126,7 @@ export class FileChangeManager {
         if (this.ws) {
             const message = JSON.stringify({
                 command: command,
-                data: { filePath: javaFilePath, xml: xmlContent }
+                data: { filePath: javaFilePath.replace(/\\/g, '/'), xml: xmlContent }
             });
             this.ws.send(message, error => {
                 if (error) {
@@ -137,7 +137,7 @@ export class FileChangeManager {
 
             const check_rule_messaage = JSON.stringify({
                 command:WebSocketConstants.SEND_CHECK_RULES_FOR_FILE_MSG,
-                data:javaFilePath
+                data:javaFilePath.replace(/\\/g, '/')
 
             });
             this.ws.send(check_rule_messaage, error => {
@@ -174,7 +174,7 @@ export class FileChangeManager {
                     if(this.ws){
                         this.ws.send(JSON.stringify({
                             command:WebSocketConstants.SEND_FILE_CHANGE_IN_IDE_MSG,
-                            data: javaFilePath
+                            data: javaFilePath.replace(/\\/g, '/')
                         }));
                     }
 
@@ -194,7 +194,7 @@ export class FileChangeManager {
                     const xmlContent = await this.convertToXML(javaFilePath); // Adjusted call
                     this.xmlFiles.push({ filePath: javaFilePath, xmlContent });
     
-                    this.sendUpdatedXMLFile(javaFilePath, xmlContent, WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
+                    this.sendUpdatedXMLFile(javaFilePath.replace(/\\/g, '/'), xmlContent, WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
                     
                     // Generate and send new project hierarchy
                     this.updateProjectHierarchy();
@@ -215,7 +215,7 @@ export class FileChangeManager {
                 if (index !== -1) {
                     this.xmlFiles.splice(index, 1);
     
-                    this.sendUpdatedXMLFile(javaFilePath, "", WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
+                    this.sendUpdatedXMLFile(javaFilePath.replace(/\\/g, '/'), "", WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
     
                     // Generate and send new project hierarchy
                     this.updateProjectHierarchy();
@@ -241,7 +241,7 @@ export class FileChangeManager {
                     }
                     this.xmlFiles.push({ filePath: newFilePath, xmlContent });
     
-                    this.sendUpdatedXMLFile(newFilePath, xmlContent, WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
+                    this.sendUpdatedXMLFile(newFilePath.replace(/\\/g, '/'), xmlContent, WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
     
                     // Generate and send new project hierarchy
                     this.updateProjectHierarchy();
@@ -270,7 +270,7 @@ export class FileChangeManager {
                     this.xmlFiles.push({ filePath: javaFilePath, xmlContent });
                 }
     
-                this.sendUpdatedXMLFile(javaFilePath, xmlContent, WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
+            this.sendUpdatedXMLFile(javaFilePath.replace(/\\/g, '/'), xmlContent, WebSocketConstants.SEND_UPDATE_XML_FILE_MSG);
     
             } catch (error) {
                 console.error(`Error processing ${javaFilePath}:`, error);
@@ -324,9 +324,10 @@ export class FileChangeManager {
         console.log("number of xmlfiles: ", this.xmlFiles.length);
 
         for (const { filePath, xmlContent } of this.xmlFiles) {
+            const formattedFilePath = filePath.replace(/\\/g, '/');
             const message = JSON.stringify({
                 command: WebSocketConstants.SEND_XML_FILES_MSG,
-                data: { filePath, xml: xmlContent }
+                data: { filePath:formattedFilePath, xml: xmlContent }
             });
 
             // Wait for the send operation to complete before proceeding to the next file

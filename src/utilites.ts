@@ -117,8 +117,8 @@ function traverseDirectory(currentPath: string, parentNode: DirectoryJson) {
     const childNode: DirectoryJson = {
       children: [],
       properties: {
-        canonicalPath: fullPath,
-        parent: currentPath,
+        canonicalPath: fullPath.replace(/\\/g, '/'),
+        parent: currentPath.replace(/\\/g, '/'),
         name: isDirectory ? dirent.name : path.basename(dirent.name, path.extname(dirent.name)),
         isDirectory: isDirectory,
         // Include fileName for files
