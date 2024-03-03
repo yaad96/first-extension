@@ -7,6 +7,7 @@ export const Constants = {
     LEARNING_DR_DIRECTORY:"/LearningDR",
     SRCML_PATH_WINDOWS: "C:\\Program Files\\srcML 0.9.5\\bin\\srcml",
     SRCML_PATH_MAC: "/usr/local/bin/srcml",
-    SRCML_PATH_LINUX: "/usr/bin/srcml"
+    SRCML_PATH_LINUX: "/usr/bin/srcml",
+    JUST_FOR_THE_KICKS:"hello"
 
 };
