@@ -15,7 +15,7 @@ import { DoiProcessing } from './DoiProcessing';
 
 //const readFileAsync = promisify(fs.readFile);
 
-const port = 8887;
+const port = 9000;
 
 
 
@@ -149,8 +149,7 @@ export function activate(context: vscode.ExtensionContext) {
 
                             const doiData = {
                                 recentVisitedFiles:doiProcessing.getVisitedFiles(),
-                                recentSearches:[],
-                                recentElements:[]
+                                recentElements:doiProcessing.getVisitedElements()
                             };
 
                             ws.send(JSON.stringify({

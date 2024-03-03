@@ -14,6 +14,7 @@ export class DoiProcessing{
     private static instance: DoiProcessing|null = null;
 
     private timedVisitedFiles: { timeStamp: string, filePath: string }[] = [];
+    private timedCaretPositions: { timeStamp: string, filePath: string, startOffset:string, endOffset: string }[] = [];
 
     public constructor(projectPath:string,ws:WebSocket|null){
         this.projectPath=projectPath;
@@ -40,6 +41,7 @@ export class DoiProcessing{
     private monitorWorkSpaceBehavior(){
         // Listening for file opening events in VSCode
         vscode.workspace.onDidOpenTextDocument(this.newVisitedFile.bind(this));
+        vscode.window.onDidChangeTextEditorSelection(this.newCaretPosition.bind(this));
 
     }
 
@@ -47,6 +49,48 @@ export class DoiProcessing{
         // Directly return the array of visited files
         return this.timedVisitedFiles;
     }
+
+    public getVisitedElements():{timeStamp:string,filePath:string,startOffset:string,endOffset:string}[]{
+        return this.timedCaretPositions;
+    }
+
+    private newCaretPosition(event: vscode.TextEditorSelectionChangeEvent): void {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            return;
+        }
+        
+        const filePath = activeEditor.document.uri.fsPath;
+        const selection = event.selections[0]; // If handling multiple selections, you may need to adjust this
+        const startOffset = activeEditor.document.offsetAt(selection.start);
+        const endOffset = activeEditor.document.offsetAt(selection.end);
+        
+        this.updateCaretPositions(filePath, startOffset, endOffset);
+    }
+
+    private updateCaretPositions(filePath: string, startOffset: number, endOffset: number): void {
+        const currentTime = new Date().getTime().toString();
+        //const currentTimeInString = new Date().getTime().toString();
+        if(this.timedCaretPositions.length>1){
+            const currentTimeInNumber = parseFloat(currentTime);
+            const lastTime =  parseFloat(this.timedCaretPositions[this.timedCaretPositions.length-1].timeStamp);
+            if(currentTimeInNumber-lastTime<1000){
+                this.timedCaretPositions.pop();
+            }
+
+            if(this.timedCaretPositions.length===100){
+                this.timedCaretPositions.pop();
+            }
+        }
+
+        const startOffsetAsString: string = String(startOffset);
+        const endOffsetAsString: string = String(endOffset);
+        this.timedCaretPositions.push({ timeStamp: currentTime, filePath: filePath.replace(/\\/g, '/'), startOffset:startOffsetAsString, endOffset:endOffsetAsString });
+        
+        // Optionally, send this information over WebSocket or process it further
+        
+    }
+
 
 
     private newVisitedFile(document: vscode.TextDocument): void {

@@ -307,7 +307,7 @@ export class FileChangeManager {
                     console.error(`Error in srcML output for file ${inputFilePath}:`, stderr);
                     reject(new Error(stderr));
                 } else {
-                    console.log(`Converted to XML: ${inputFilePath}`);
+                    //console.log(`Converted to XML: ${inputFilePath}`);
                     resolve(stdout); // stdout contains the XML content
                 }
             });
@@ -337,7 +337,7 @@ export class FileChangeManager {
                         console.error(`Error sending XML for file ${filePath}:`, error);
                         reject(error); // Stop sending if an error occurs
                     } else {
-                        console.log(`Sent XML for file ${filePath}`);
+                        //console.log(`Sent XML for file ${filePath}`);
                         resolve();
                     }
                 });
