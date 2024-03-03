@@ -149,7 +149,7 @@ export function activate(context: vscode.ExtensionContext) {
 
                             const doiData = {
                                 recentVisitedFiles:doiProcessing.getVisitedFiles(),
-                                recentElements:doiProcessing.getVisitedElements()
+                                recentVisitedElements:doiProcessing.getVisitedElements()
                             };
 
                             ws.send(JSON.stringify({
