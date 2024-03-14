@@ -38,23 +38,24 @@ export function convertToXML(inputFilePath: string): Promise<string> {
 }
 
 export function findLineNumber(xmlFilePath: string): Promise<string> {
+  console.log("XMLFILEPATH: ",xmlFilePath);
   const platform = os.platform();
   console.log(`The system is running on: ${platform}`);
 
 
   return new Promise((resolve, reject) => {
     // Construct the command
-    const command = "";
+    let command = "";
 
 
     if (platform === 'win32') {
-      const command = `"${Constants.SRCML_PATH_WINDOWS}" --unit 1 "${xmlFilePath}"`;
+      command = `"${Constants.SRCML_PATH_WINDOWS}" --unit 1 "${xmlFilePath}"`;
       console.log('This is a Windows system.');
     } else if (platform === 'darwin') {
-      const command = `"${Constants.SRCML_PATH_MAC}" --unit 1 "${xmlFilePath}"`;
+      command = `"${Constants.SRCML_PATH_MAC}" --unit 1 "${xmlFilePath}"`;
       console.log('This is a macOS system.');
     } else if (platform === 'linux') {
-      const command = `"${Constants.SRCML_PATH_LINUX}" --unit 1 "${xmlFilePath}"`;
+      command = `"${Constants.SRCML_PATH_LINUX}" --unit 1 "${xmlFilePath}"`;
       console.log('This is a Linux system.');
     } else {
       console.log('Unknown or unsupported operating system.');
@@ -128,7 +129,7 @@ function traverseDirectory(currentPath: string, parentNode: DirectoryJson) {
 
     if (!isDirectory) {
       // Include fileType for files
-      if (shouldIgnoreFileForProjectHierarchy(fullPath)) return;
+      if (shouldIgnoreFileForProjectHierarchy(fullPath)){ return;};
       childNode.properties.fileType = path.extname(dirent.name).substring(1);
     }
 
