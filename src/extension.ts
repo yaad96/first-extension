@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 
                     // Adding "Mine Rules" command functionality
-                    context.subscriptions.push(vscode.commands.registerCommand('extension.mineRules', () => {
+                    context.subscriptions.push(vscode.commands.registerCommand('activedoc.mineRules', () => {
                         const editor = vscode.window.activeTextEditor;
                         if (editor) {
                             const document = editor.document;
@@ -216,7 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 
-    context.subscriptions.push(vscode.commands.registerCommand('first-extension.helloWorld', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('activedoc.helloWorld', () => {
         vscode.window.showInformationMessage('Hello World from ActiveDocumentation!');
     }));
 

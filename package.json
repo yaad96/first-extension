@@ -1,6 +1,6 @@
 {
-  "name": "first-extension",
-  "displayName": "first_extension",
+  "name": "activedoc",
+  "displayName": "ActiveDoc",
   "description": "testing",
   "version": "0.0.1",
   "engines": {
@@ -11,17 +11,16 @@
   ],
   "activationEvents": [
     "onStartupFinished"
-]
-,
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "first-extension.helloWorld",
+        "command": "activedoc.helloWorld",
         "title": "Hello World"
       },
       {
-        "command": "extension.mineRules",
+        "command": "activedoc.mineRules",
         "title": "Mine Rules"
       }
     ],
@@ -29,7 +28,7 @@
       "editor/context": [
         {
           "when": "editorTextFocus",
-          "command": "extension.mineRules",
+          "command": "activedoc.mineRules",
           "group": "navigation"
         }
       ]
