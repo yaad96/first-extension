@@ -2,6 +2,9 @@
 
 This is the README for the "activeDoc" extension for VSCode.
 
+## version 0.0.2.vsix state 
+- In the webapp, if the user clicks on a generated LLM snippet, that snippet along with the explanation is now being shown in a new window in the workspace.
+
 ## version 0.0.1.vsix state 
 - The search keywords of a vscode workspace is not accessible to the VSCode API users. So, `searchedElements` property is not present in the vscode extension
 - In mac, clicking on a code snippet on the client (web) app is not redirecting the vscode workspace focused file's intended code snippet as it should.
