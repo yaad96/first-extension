@@ -11,8 +11,6 @@ This is the README for the "activeDoc" extension for VSCode.
 
 ## Features
 
-- Describe the key features.
-- Explain how these features improve the user experience or development process.
 
 ## Installation
 
