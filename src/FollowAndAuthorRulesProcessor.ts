@@ -26,6 +26,7 @@ export class FollowAndAuthorRulesProcessor {
     private tagTable: Tag[];
     private currentProjectPath: string;
     public readonly wsMessages: string[] = [
+        WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG,
         WebSocketConstants.RECEIVE_SNIPPET_XML_MSG,
         WebSocketConstants.RECEIVE_MODIFIED_RULE_MSG,
         WebSocketConstants.RECEIVE_MODIFIED_TAG_MSG,
@@ -92,10 +93,23 @@ export class FollowAndAuthorRulesProcessor {
         const command = jsonData.command;
 
         switch (command) {
+
+            case WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG:
+                console.log("CAME HERE");
+                const code = jsonData.data.code;
+                // Format the explanation as a multiline comment
+                const explanationAsComment = `/*\n * ${jsonData.data.explanation.replace(/\n/g, '\n * ')}\n */\n\n`;
+
+                // Create a new split window with the explanation comment at the top and the code below
+                vscode.workspace.openTextDocument({ content: explanationAsComment + code, language: 'java' }) // Adjust the language as necessary
+                    .then(document => {
+                        vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Beside });
+                    });
+
             case WebSocketConstants.RECEIVE_SNIPPET_XML_MSG:
                 // Handle RECEIVE_SNIPPET_XML_MSG
                 const xmlString = jsonData.data.xml;
-
+            
 
                 const tempXmlFilePath = path.join(this.currentProjectPath, Constants.TEMP_XML_FILE);
                 const xmlHeader = Constants.XML_HEADER;
