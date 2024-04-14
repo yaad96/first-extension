@@ -26,6 +26,7 @@ export class FollowAndAuthorRulesProcessor {
     private tagTable: Tag[];
     private currentProjectPath: string;
     public readonly wsMessages: string[] = [
+        WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG,
         WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG,
         WebSocketConstants.RECEIVE_SNIPPET_XML_MSG,
         WebSocketConstants.RECEIVE_MODIFIED_RULE_MSG,
@@ -94,6 +95,44 @@ export class FollowAndAuthorRulesProcessor {
 
         switch (command) {
 
+            case WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG:
+                console.log("ASDAD222");
+                try {
+                    const filePath = jsonData.data.fileName;
+                    const searchText = jsonData.data.convertedJava;
+                    //console.log("filePath:");
+                    //console.log(filePath);
+                    //console.log("seat");
+                    //console.log(searchText);
+                    // Open the file
+                    const document = await vscode.workspace.openTextDocument(filePath);
+                    const editor = await vscode.window.showTextDocument(document);
+        
+                    // Find the text in the opened document
+                    const text = searchText.trim();
+                    for (let i = 0; i < document.lineCount; i++) {
+                        const lineText = document.lineAt(i).text.trim();
+                        if (lineText.includes(text)) {
+                            // Create a range that represents, where in the document the text is found
+                            const range = new vscode.Range(i, 0, i, lineText.length);
+        
+                            // Highlight the line
+                            editor.selection = new vscode.Selection(range.start, range.end);
+                            editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+        
+                            // Optionally, you can also add decorations or other highlights
+                            const decorationType = vscode.window.createTextEditorDecorationType({
+                                backgroundColor: 'rgba(86, 156, 214, 0.5)'  // Soft blue
+                            });
+                            editor.setDecorations(decorationType, [range]);
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error opening or processing the file:', error);
+                }
+                break;
+
             case WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG:
                 console.log("CAME HERE");
                 const code = jsonData.data.code;
@@ -105,6 +144,7 @@ export class FollowAndAuthorRulesProcessor {
                     .then(document => {
                         vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Beside });
                     });
+                break;
 
             case WebSocketConstants.RECEIVE_SNIPPET_XML_MSG:
                 // Handle RECEIVE_SNIPPET_XML_MSG

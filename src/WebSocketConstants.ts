@@ -2,6 +2,7 @@ export class WebSocketConstants {
     static readonly MESSAGE_KEY_COMMAND: string = "command";
     static readonly MESSAGE_KEY_DATA: string = "data";
 
+    static readonly RECEIVE_CONVERTED_JAVA_SNIPPET_MSG:string = "CONVERTED_JAVA_SNIPPET";
     static readonly RECEIVE_LLM_SNIPPET_MSG:string= "LLM_SNIPPET";
     static readonly RECEIVE_MODIFIED_RULE_MSG: string = "MODIFIED_RULE";
     static readonly RECEIVE_MODIFIED_TAG_MSG: string = "MODIFIED_TAG";
