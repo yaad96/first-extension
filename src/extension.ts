@@ -130,9 +130,12 @@ export function activate(context: vscode.ExtensionContext) {
                             const startOffset = document.offsetAt(wordRange.start);
                             const startLineOffset = wordRange.start.character;
                             const lineNumber = wordRange.start.line + 1; // VS Code lines are zero-based
+                            const filePath = document.uri.fsPath;
+                            const formattedFilePath = filePath.replace(/\\/g, '/');
 
                             const minigDataInfo = {
-                                filePath: document.uri.fsPath,
+                                //filePath: document.uri.fsPath,
+                                filePath:formattedFilePath,
                                 startOffset: startOffset.toString(),
                                 startLineOffset: startLineOffset.toString(),
                                 lineNumber: lineNumber.toString(),
