@@ -1,4 +1,4 @@
-/*import { WebSocketConstants } from "./WebSocketConstants";
+import { WebSocketConstants } from "./WebSocketConstants";
 
 interface EncodeDataParams {
     command: string;
@@ -31,4 +31,4 @@ export class MessageProcessor {
         };
         return JSON.stringify(message);
     }
-}*/
+}
