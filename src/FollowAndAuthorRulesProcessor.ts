@@ -26,6 +26,7 @@ export class FollowAndAuthorRulesProcessor {
     private tagTable: Tag[];
     private currentProjectPath: string;
     public readonly wsMessages: string[] = [
+        WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT,
         WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG,
         WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG,
         WebSocketConstants.RECEIVE_SNIPPET_XML_MSG,
@@ -95,6 +96,31 @@ export class FollowAndAuthorRulesProcessor {
 
         switch (command) {
 
+            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT:
+                console.log("COME");
+                const localFilePath = jsonData.filePath;
+                const modifiedContent = jsonData.modifiedFileContent;
+                
+
+                // Read local file content
+                const localFileUri = vscode.Uri.file(localFilePath);
+                const localDocument = await vscode.workspace.openTextDocument(localFileUri);
+
+                // Create a virtual document for the modified content
+                const modifiedUri = localFileUri.with({ scheme: 'untitled', path: localFilePath + '-modified' });
+
+                await vscode.workspace.openTextDocument(modifiedUri).then(localDocument => {
+                    const edit = new vscode.WorkspaceEdit();
+                    edit.insert(modifiedUri, new vscode.Position(0, 0), modifiedContent);
+                    return vscode.workspace.applyEdit(edit).then(success => {
+                        if (success) {
+                            vscode.commands.executeCommand('vscode.diff', localFileUri, modifiedUri, 'Local ↔ Modified');
+                        } else {
+                            vscode.window.showErrorMessage('Could not display the diff.');
+                        }
+                    });
+                });
+                break;
             case WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG:
                 console.log("ASDAD222");
                 try {
@@ -107,7 +133,7 @@ export class FollowAndAuthorRulesProcessor {
                     // Open the file
                     const document = await vscode.workspace.openTextDocument(filePath);
                     const editor = await vscode.window.showTextDocument(document);
-        
+
                     // Find the text in the opened document
                     const text = searchText.trim();
                     for (let i = 0; i < document.lineCount; i++) {
@@ -115,11 +141,11 @@ export class FollowAndAuthorRulesProcessor {
                         if (lineText.includes(text)) {
                             // Create a range that represents, where in the document the text is found
                             const range = new vscode.Range(i, 0, i, lineText.length);
-        
+
                             // Highlight the line
                             editor.selection = new vscode.Selection(range.start, range.end);
                             editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-        
+
                             // Optionally, you can also add decorations or other highlights
                             const decorationType = vscode.window.createTextEditorDecorationType({
                                 backgroundColor: 'rgba(86, 156, 214, 0.5)'  // Soft blue
@@ -149,7 +175,7 @@ export class FollowAndAuthorRulesProcessor {
             case WebSocketConstants.RECEIVE_SNIPPET_XML_MSG:
                 // Handle RECEIVE_SNIPPET_XML_MSG
                 const xmlString = jsonData.data.xml;
-            
+
 
                 const tempXmlFilePath = path.join(this.currentProjectPath, Constants.TEMP_XML_FILE);
                 const xmlHeader = Constants.XML_HEADER;
