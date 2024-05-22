@@ -7,6 +7,18 @@ import * as os from 'os';
 import * as fs from 'fs';
 
 
+export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null;
+  return function (...args: Parameters<T>) {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+}
+
 
 
 export async function writeToFile(filePath: string, exprText: string): Promise<void> {

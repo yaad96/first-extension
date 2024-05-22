@@ -6,7 +6,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { readFile } from 'fs/promises';
 import { WebSocketConstants } from './WebSocketConstants';
-import { buildFolderHierarchy } from './utilites';
+import { Constants } from './Constants';
+import { buildFolderHierarchy,debounce } from './utilites';
 //import { MessageProcessor } from './MessageProcessor';
 import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
@@ -23,6 +24,8 @@ export class FileChangeManager {
     private constructor(projectPath:string,ws:WebSocket) {
         this.projectPath = projectPath;
         this.ws = ws;
+        //second argument to the debounce function sets the delay timer
+        this.debouncedHandleChangeTextDocument = debounce(this.handleChangeTextDocument.bind(this), Constants.DEBOUNCER_DELAY);
         this.watchWorkspaceChanges();
         if (vscode.workspace.workspaceFolders) {
             //const projectPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -109,13 +112,14 @@ export class FileChangeManager {
         return FileChangeManager.instance;
     }
 
+    private debouncedHandleChangeTextDocument: (event: vscode.TextDocumentChangeEvent) => void;
 
 
     private watchWorkspaceChanges() {
 
         this.handleActiveTextEditorChange();
 
-        vscode.workspace.onDidChangeTextDocument(this.handleChangeTextDocument.bind(this));
+        vscode.workspace.onDidChangeTextDocument(this.debouncedHandleChangeTextDocument);
         vscode.workspace.onDidCreateFiles(this.handleCreateFile.bind(this));
         vscode.workspace.onDidDeleteFiles(this.handleDeleteFile.bind(this));
         vscode.workspace.onDidRenameFiles(this.handleRenameFile.bind(this));
