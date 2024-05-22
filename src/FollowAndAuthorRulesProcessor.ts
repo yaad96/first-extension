@@ -126,21 +126,27 @@ export class FollowAndAuthorRulesProcessor {
                 try {
                     //const data = JSON.parse(message);
                     const fileName = jsonData.data.fileName;
-                    //console.log(fileName);
                     const convertedJava = jsonData.data.convertedJava;
-                    //console.log("full text: ", convertedJava);
-                    const lastLine = convertedJava.trim().split('\n').pop();
-                    //console.log("Last Line: ",lastLine);
+                    const lastLineSnippet = convertedJava.trim().split('\n').pop().trim();
               
                     const openPath = vscode.Uri.file(fileName);
                     vscode.workspace.openTextDocument(openPath).then(doc => {
                       vscode.window.showTextDocument(doc).then(editor => {
                         const text = doc.getText();
-                        const lastLineIndex = text.split('\n').findIndex(line => line.includes(lastLine));
+                        const lines = text.split('\n');
+                        let lineIndex = -1;
               
-                        if (lastLineIndex !== -1) {
-                          const startPos = new vscode.Position(lastLineIndex, 0);
-                          const endPos = new vscode.Position(lastLineIndex, lastLine.length);
+                        // Find the line containing the lastLineSnippet
+                        for (let i = 0; i < lines.length; i++) {
+                          if (lines[i].includes(lastLineSnippet)) {
+                            lineIndex = i;
+                            break;
+                          }
+                        }
+              
+                        if (lineIndex !== -1) {
+                          const startPos = new vscode.Position(lineIndex, 0);
+                          const endPos = new vscode.Position(lineIndex, lines[lineIndex].length);
                           const range = new vscode.Range(startPos, endPos);
               
                           editor.selection = new vscode.Selection(startPos, endPos);
@@ -154,7 +160,7 @@ export class FollowAndAuthorRulesProcessor {
                         }
                       });
                     });
-                  } catch (error) {
+                }catch (error) {
                     vscode.window.showErrorMessage('Failed to process the message: ' + error);
                   }
                 break;
