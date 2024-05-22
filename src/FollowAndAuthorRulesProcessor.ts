@@ -122,41 +122,41 @@ export class FollowAndAuthorRulesProcessor {
                 });
                 break;
             case WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG:
-                console.log("ASDAD222");
+                console.log("ASDAD222aaaa");
                 try {
-                    const filePath = jsonData.data.fileName;
-                    const searchText = jsonData.data.convertedJava;
-                    //console.log("filePath:");
-                    //console.log(filePath);
-                    //console.log("seat");
-                    //console.log(searchText);
-                    // Open the file
-                    const document = await vscode.workspace.openTextDocument(filePath);
-                    const editor = await vscode.window.showTextDocument(document);
-
-                    // Find the text in the opened document
-                    const text = searchText.trim();
-                    for (let i = 0; i < document.lineCount; i++) {
-                        const lineText = document.lineAt(i).text.trim();
-                        if (lineText.includes(text)) {
-                            // Create a range that represents, where in the document the text is found
-                            const range = new vscode.Range(i, 0, i, lineText.length);
-
-                            // Highlight the line
-                            editor.selection = new vscode.Selection(range.start, range.end);
-                            editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-
-                            // Optionally, you can also add decorations or other highlights
-                            const decorationType = vscode.window.createTextEditorDecorationType({
-                                backgroundColor: 'rgba(86, 156, 214, 0.5)'  // Soft blue
-                            });
-                            editor.setDecorations(decorationType, [range]);
-                            break;
+                    //const data = JSON.parse(message);
+                    const fileName = jsonData.data.fileName;
+                    //console.log(fileName);
+                    const convertedJava = jsonData.data.convertedJava;
+                    //console.log("full text: ", convertedJava);
+                    const lastLine = convertedJava.trim().split('\n').pop();
+                    //console.log("Last Line: ",lastLine);
+              
+                    const openPath = vscode.Uri.file(fileName);
+                    vscode.workspace.openTextDocument(openPath).then(doc => {
+                      vscode.window.showTextDocument(doc).then(editor => {
+                        const text = doc.getText();
+                        const lastLineIndex = text.split('\n').findIndex(line => line.includes(lastLine));
+              
+                        if (lastLineIndex !== -1) {
+                          const startPos = new vscode.Position(lastLineIndex, 0);
+                          const endPos = new vscode.Position(lastLineIndex, lastLine.length);
+                          const range = new vscode.Range(startPos, endPos);
+              
+                          editor.selection = new vscode.Selection(startPos, endPos);
+                          editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+              
+                          // Optionally highlight the line
+                          const decoration = vscode.window.createTextEditorDecorationType({
+                            backgroundColor: 'rgba(255,255,0,0.3)'
+                          });
+                          editor.setDecorations(decoration, [range]);
                         }
-                    }
-                } catch (error) {
-                    console.error('Error opening or processing the file:', error);
-                }
+                      });
+                    });
+                  } catch (error) {
+                    vscode.window.showErrorMessage('Failed to process the message: ' + error);
+                  }
                 break;
 
             case WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG:
@@ -174,7 +174,7 @@ export class FollowAndAuthorRulesProcessor {
 
             case WebSocketConstants.RECEIVE_SNIPPET_XML_MSG:
                 // Handle RECEIVE_SNIPPET_XML_MSG
-                const xmlString = jsonData.data.xml;
+                /*const xmlString = jsonData.data.xml;
 
 
                 const tempXmlFilePath = path.join(this.currentProjectPath, Constants.TEMP_XML_FILE);
@@ -210,10 +210,11 @@ export class FollowAndAuthorRulesProcessor {
                 } catch (error) {
                     console.error("An error occurred:");
                     console.error(error); // Handle the error
-                }
+                }*/
 
 
                 break;
+            
             case WebSocketConstants.RECEIVE_MODIFIED_RULE_MSG:
                 // Extract ruleID and ruleInfo from jsonData.data
                 const ruleID = jsonData.data.ruleID;
