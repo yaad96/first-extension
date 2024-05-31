@@ -2,6 +2,11 @@
 
 This is the README for the "activeDoc" extension for VSCode.
 
+## version 0.0.3.vsix state
+- Functionality implemented for "CONVERTED_JAVA_SNIPPET" command
+- Added a debouncer function (delays the firing time of the command "FILE_CHANGE) so that this function is called after a certain interval instead of registering each key stroke
+- Minor bug fixes
+
 ## version 0.0.2.vsix state 
 - In the webapp, if the user clicks on a generated LLM snippet, that snippet along with the explanation is now being shown in a new window in the workspace.
 
