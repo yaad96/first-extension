@@ -7,6 +7,46 @@ import * as os from 'os';
 import * as fs from 'fs';
 
 
+
+
+
+export async function findFileAndReadContent(fileName: string) {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+      vscode.window.showErrorMessage('No workspace folder open.');
+      return;
+  }
+
+  const folderUri = workspaceFolder.uri;
+  const fileContent = await findFileRecursively(folderUri, fileName);
+  if (fileContent) {
+      return fileContent;
+  }
+
+  vscode.window.showErrorMessage(`File ${fileName} not found in workspace.`);
+}
+
+async function findFileRecursively(folderUri: vscode.Uri, fileName: string): Promise<string | undefined> {
+  const directoryEntries = await vscode.workspace.fs.readDirectory(folderUri);
+
+  for (const [name, type] of directoryEntries) {
+      const entryUri = vscode.Uri.joinPath(folderUri, name);
+
+      if (type === vscode.FileType.File && name === fileName) {
+          const fileContent = await vscode.workspace.fs.readFile(entryUri);
+          return Buffer.from(fileContent).toString('utf8');
+      } else if (type === vscode.FileType.Directory) {
+          const fileContent = await findFileRecursively(entryUri, fileName);
+          if (fileContent) {
+              return fileContent;
+          }
+      }
+  }
+
+  return undefined;
+}
+
+
 export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null;
   return function (...args: Parameters<T>) {

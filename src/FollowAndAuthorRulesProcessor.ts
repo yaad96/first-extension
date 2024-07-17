@@ -7,7 +7,7 @@ import { WebSocketConstants } from './WebSocketConstants';
 import { Constants } from './Constants';
 import * as fs1 from 'fs';
 import { FileChangeManager } from './FileChangeManager';
-import { writeToFile, convertToXML, findLineNumber } from './utilites';
+import { writeToFile, convertToXML, findFileAndReadContent } from './utilites';
 
 
 
@@ -26,6 +26,8 @@ export class FollowAndAuthorRulesProcessor {
     private tagTable: Tag[];
     private currentProjectPath: string;
     public readonly wsMessages: string[] = [
+        WebSocketConstants.RECEIVE_EDIT_FIX,
+        WebSocketConstants.SEND_CONTENT_FOR_EDIT_FIX,
         WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT,
         WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG,
         WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG,
@@ -90,37 +92,88 @@ export class FollowAndAuthorRulesProcessor {
         return tagTableData;
     }
 
+
+
+
     public async processReceivedMessages(message: string): Promise<void> {
         const jsonData = JSON.parse(message.toString());
         const command = jsonData.command;
 
         switch (command) {
 
+            case WebSocketConstants.RECEIVE_EDIT_FIX:
+                console.log("ASDASDASD");
+                console.log(jsonData);
+                const filePathOfSuggestedFix = jsonData.data.filePathOfSuggestedFix;
+
+                findFileAndReadContent(filePathOfSuggestedFix)
+                    .then(content => {
+                        if (content) {
+                            // Process the file content as needed
+                            console.log('File content:', content);
+
+                            this.ws?.send(JSON.stringify({
+                                command: WebSocketConstants.SEND_CONTENT_FOR_EDIT_FIX,
+                                data: content
+                            }));
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error reading file content:', err);
+                    });
+
+                break;
+
+
             case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT:
                 console.log("COME");
-                const localFilePath = jsonData.filePath;
-                const modifiedContent = jsonData.modifiedFileContent;
-                
+                console.log(jsonData);
+                const localFilePath = jsonData.data.filePath;
+                const modifiedContent = jsonData.data.modifiedFileContent;
+                const explanation = jsonData.data.explanation;
+                const violatedCode = jsonData.data.violatedCode;
 
-                // Read local file content
-                const localFileUri = vscode.Uri.file(localFilePath);
-                const localDocument = await vscode.workspace.openTextDocument(localFileUri);
+                // Function to escape special characters in a string for use in a regular expression
+                const escapeRegExp = (string: string): string => {
+                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+                };
 
-                // Create a virtual document for the modified content
-                const modifiedUri = localFileUri.with({ scheme: 'untitled', path: localFilePath + '-modified' });
+                // Read the file content
+                fs1.readFile(localFilePath, 'utf8', (err, data) => {
+                    if (err) {
+                        console.error('Error reading the file:', err);
+                        return;
+                    }
 
-                await vscode.workspace.openTextDocument(modifiedUri).then(localDocument => {
-                    const edit = new vscode.WorkspaceEdit();
-                    edit.insert(modifiedUri, new vscode.Position(0, 0), modifiedContent);
-                    return vscode.workspace.applyEdit(edit).then(success => {
-                        if (success) {
-                            vscode.commands.executeCommand('vscode.diff', localFileUri, modifiedUri, 'Local ↔ Modified');
+                    // Escape the violatedCode for use in a regular expression
+                    const escapedViolatedCode = escapeRegExp(violatedCode);
+
+                    // Create a regular expression to find the violated code, with the 's' flag for dotAll mode
+                    const regex = new RegExp(escapedViolatedCode, 'gs');
+
+                    // Replace the violated code with the modified content
+                    const newContent = data.replace(regex, modifiedContent);
+
+                    // Format the explanation as a comment
+                    //const comment = `/*\n${explanation}\n*/\n\n`;
+
+                    const comment = ``;
+
+                    // Prepare the final content with the explanation
+                    const finalContent = `${comment}${newContent}`;
+
+                    // Write the updated content back to the file
+                    fs1.writeFile(localFilePath, finalContent, 'utf8', (err) => {
+                        if (err) {
+                            console.error('Error writing to the file:', err);
                         } else {
-                            vscode.window.showErrorMessage('Could not display the diff.');
+                            console.log('File updated successfully.');
                         }
                     });
                 });
                 break;
+
+
             case WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG:
                 console.log("ASDAD222aaaa");
                 try {
@@ -128,41 +181,41 @@ export class FollowAndAuthorRulesProcessor {
                     const fileName = jsonData.data.fileName;
                     const convertedJava = jsonData.data.convertedJava;
                     const lastLineSnippet = convertedJava.trim().split('\n').pop().trim();
-              
+
                     const openPath = vscode.Uri.file(fileName);
                     vscode.workspace.openTextDocument(openPath).then(doc => {
-                      vscode.window.showTextDocument(doc).then(editor => {
-                        const text = doc.getText();
-                        const lines = text.split('\n');
-                        let lineIndex = -1;
-              
-                        // Find the line containing the lastLineSnippet
-                        for (let i = 0; i < lines.length; i++) {
-                          if (lines[i].includes(lastLineSnippet)) {
-                            lineIndex = i;
-                            break;
-                          }
-                        }
-              
-                        if (lineIndex !== -1) {
-                          const startPos = new vscode.Position(lineIndex, 0);
-                          const endPos = new vscode.Position(lineIndex, lines[lineIndex].length);
-                          const range = new vscode.Range(startPos, endPos);
-              
-                          editor.selection = new vscode.Selection(startPos, endPos);
-                          editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-              
-                          // Optionally highlight the line
-                          const decoration = vscode.window.createTextEditorDecorationType({
-                            backgroundColor: 'rgba(255,255,0,0.3)'
-                          });
-                          editor.setDecorations(decoration, [range]);
-                        }
-                      });
+                        vscode.window.showTextDocument(doc).then(editor => {
+                            const text = doc.getText();
+                            const lines = text.split('\n');
+                            let lineIndex = -1;
+
+                            // Find the line containing the lastLineSnippet
+                            for (let i = 0; i < lines.length; i++) {
+                                if (lines[i].includes(lastLineSnippet)) {
+                                    lineIndex = i;
+                                    break;
+                                }
+                            }
+
+                            if (lineIndex !== -1) {
+                                const startPos = new vscode.Position(lineIndex, 0);
+                                const endPos = new vscode.Position(lineIndex, lines[lineIndex].length);
+                                const range = new vscode.Range(startPos, endPos);
+
+                                editor.selection = new vscode.Selection(startPos, endPos);
+                                editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+
+                                // Optionally highlight the line
+                                const decoration = vscode.window.createTextEditorDecorationType({
+                                    backgroundColor: 'rgba(255,255,0,0.3)'
+                                });
+                                editor.setDecorations(decoration, [range]);
+                            }
+                        });
                     });
-                }catch (error) {
+                } catch (error) {
                     vscode.window.showErrorMessage('Failed to process the message: ' + error);
-                  }
+                }
                 break;
 
             case WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG:
@@ -220,7 +273,7 @@ export class FollowAndAuthorRulesProcessor {
 
 
                 break;
-            
+
             case WebSocketConstants.RECEIVE_MODIFIED_RULE_MSG:
                 // Extract ruleID and ruleInfo from jsonData.data
                 const ruleID = jsonData.data.ruleID;

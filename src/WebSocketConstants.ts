@@ -1,7 +1,9 @@
 export class WebSocketConstants {
     static readonly MESSAGE_KEY_COMMAND: string = "command";
     static readonly MESSAGE_KEY_DATA: string = "data";
-
+    
+    static readonly RECEIVE_EDIT_FIX:string = "SEND_INFO_FOR_EDIT_FIX";
+    static readonly SEND_CONTENT_FOR_EDIT_FIX:string = "RECEIVE_CONTENT_FOR_EDIT_FIX";
     static readonly RECEIVE_LLM_MODIFIED_FILE_CONTENT:string = "LLM_MODIFIED_FILE_CONTENT";
     static readonly RECEIVE_CONVERTED_JAVA_SNIPPET_MSG:string = "CONVERTED_JAVA_SNIPPET";
     static readonly RECEIVE_LLM_SNIPPET_MSG:string= "LLM_SNIPPET";
