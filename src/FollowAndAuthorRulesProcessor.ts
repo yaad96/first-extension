@@ -102,8 +102,8 @@ export class FollowAndAuthorRulesProcessor {
         switch (command) {
 
             case WebSocketConstants.RECEIVE_EDIT_FIX:
-                console.log("ASDASDASD");
-                console.log(jsonData);
+                //console.log("ASDASDASDasdadad22222");
+                //console.log(jsonData);
                 const filePathOfSuggestedFix = jsonData.data.filePathOfSuggestedFix;
 
                 findFileAndReadContent(filePathOfSuggestedFix)
