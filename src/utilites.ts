@@ -47,17 +47,21 @@ async function findFileRecursively(folderUri: vscode.Uri, fileName: string): Pro
 }
 
 
-export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: any[]) => void>(
+  func: T, 
+  wait: number
+): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null;
-  return function (...args: Parameters<T>) {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => {
-      func(...args);
-    }, wait);
+  return function(...args: Parameters<T>) {
+      if (timeout) {
+          clearTimeout(timeout);
+      }
+      timeout = setTimeout(() => {
+          func(...args);
+      }, wait);
   };
 }
+
 
 
 
@@ -72,18 +76,22 @@ export async function writeToFile(filePath: string, exprText: string): Promise<v
 
 export function convertToXML(inputFilePath: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    // Adjust the command to output XML to stdout
-    const command = `srcml "${inputFilePath}"`;
+    // pick the right srcml executable
+    const bin = process.platform === 'win32'
+      ? Constants.SRCML_PATH_WINDOWS
+      : process.platform === 'darwin'
+        ? Constants.SRCML_PATH_MAC
+        : Constants.SRCML_PATH_LINUX;
+
+    // quote both the binary and path
+    const command = `"${bin}" "${inputFilePath}"`;
     exec(command, (error, stdout, stderr) => {
       if (error) {
-        //console.error(`Error executing srcML for file ${inputFilePath}:`, error);
         reject(error);
       } else if (stderr) {
-        console.error(`Error in srcML output for file ${inputFilePath}:`, stderr);
         reject(new Error(stderr));
       } else {
-        //console.log(`Converted to XML: ${inputFilePath}`);
-        resolve(stdout); // stdout contains the XML content
+        resolve(stdout);
       }
     });
   });

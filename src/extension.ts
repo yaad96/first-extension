@@ -11,6 +11,7 @@ import { FollowAndAuthorRulesProcessor } from './FollowAndAuthorRulesProcessor';
 import { MiningRulesProcessor } from './MiningRulesProcessor';
 import { DoiProcessing } from './DoiProcessing';
 
+import { diffChunks, DiffChunk } from './FollowAndAuthorRulesProcessor';
 
 
 //const readFileAsync = promisify(fs.readFile);
@@ -31,7 +32,6 @@ export function activate(context: vscode.ExtensionContext) {
         server.on('connection', (ws) => {
 
             console.log('Client connected');
-            
 
             (async () => { // Immediately Invoked Function Expression (IIFE) for async
                 if (vscode.workspace.workspaceFolders) {
@@ -222,6 +222,72 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.commands.registerCommand('activedoc.helloWorld', () => {
         vscode.window.showInformationMessage('Hello World from ActiveDocumentation!');
     }));
+
+    // CodeLens Accept/Reject integration for diff view
+    context.subscriptions.push(
+        vscode.languages.registerCodeLensProvider(
+            { language: 'java', scheme: 'untitled' },
+            {
+                provideCodeLenses(): vscode.CodeLens[] {
+                    return diffChunks.flatMap((chunk, i) => [
+                        new vscode.CodeLens(chunk.range, {
+                            command: 'activedoc.acceptChange',
+                            title: 'Accept Change',
+                            arguments: [i]
+                        }),
+                        new vscode.CodeLens(chunk.range, {
+                            command: 'activedoc.rejectChange',
+                            title: 'Reject Change',
+                            arguments: [i]
+                        })
+                    ]);
+                }
+            }
+        )
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('activedoc.acceptChange', async (index: number) => {
+            const chunk = diffChunks[index];
+            if (!chunk) {
+                vscode.window.showErrorMessage('No such change to accept.');
+                return;
+            }
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showErrorMessage('No active editor.');
+                return;
+            }
+            const content = editor.document.getText();
+            try {
+                await fs.promises.writeFile(chunk.filePath, content, 'utf8');
+                vscode.window.showInformationMessage('Changes applied to file.');
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`Failed to write file: ${err.message}`);
+            }
+        })
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('activedoc.rejectChange', async (index: number) => {
+            const chunk = diffChunks[index];
+            if (!chunk) {
+                return vscode.window.showErrorMessage('No such change to reject.');
+            }
+
+            // 1) Overwrite the entire file with the saved original content
+            await fs.promises.writeFile(chunk.filePath, chunk.fullOriginalContent, 'utf8');
+
+            // 2) Clear out all remaining diffs
+            diffChunks.length = 0;
+
+            // 3) Refresh your CodeLenses in the diff-view
+            await vscode.commands.executeCommand('editor.action.codelens.refresh');
+
+            vscode.window.showInformationMessage('File reverted to original content.');
+        })
+    );
+
+
+
 
     // Ensure the server is closed when the extension is deactivated
     context.subscriptions.push(new vscode.Disposable(() => server.close()));

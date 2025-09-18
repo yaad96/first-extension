@@ -165,7 +165,12 @@ export class FileChangeManager {
                           };
                         
                           // Send the project hierarchy data to the connected client
-                          this.ws?.send(JSON.stringify(output));
+                          if (this.ws?.readyState === WebSocket.OPEN) {
+                            this.ws.send(JSON.stringify(output));
+                          } else {
+                            console.warn('Skipping send: WebSocket not open');
+                          }
+                          
     }
 
     private handleActiveTextEditorChange() {

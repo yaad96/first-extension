@@ -9,6 +9,19 @@ import * as fs1 from 'fs';
 import { FileChangeManager } from './FileChangeManager';
 import { writeToFile, convertToXML, findFileAndReadContent } from './utilites';
 
+import { diffChars } from 'diff';
+
+export interface DiffChunk {
+    range: vscode.Range;
+    newText: string;
+    filePath: string;
+    originalText: string;
+    fullOriginalContent: string;
+    startOffset: number;
+    endOffset: number;
+}
+export const diffChunks: DiffChunk[] = [];
+
 
 
 interface Tag {
@@ -128,50 +141,370 @@ export class FollowAndAuthorRulesProcessor {
             case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT:
                 console.log("COME");
                 console.log(jsonData);
-                const localFilePath = jsonData.data.filePath;
-                const modifiedContent = jsonData.data.modifiedFileContent;
-                const explanation = jsonData.data.explanation;
-                const violatedCode = jsonData.data.violatedCode;
 
-                // Function to escape special characters in a string for use in a regular expression
-                const escapeRegExp = (string: string): string => {
-                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+                // 1) Extract incoming fields (including explanation)
+                var localFilePath = jsonData.data.filePath as string;
+                var modifiedContent = jsonData.data.modifiedFileContent as string;
+                var violatedCode = jsonData.data.violatedCode as string;
+                var explanation = jsonData.data.explanation as string;
+
+                // 2) Read the original file
+                fs1.readFile(localFilePath, 'utf8', (readErr, originalContent) => {
+                    if (readErr) {
+                        console.error('Error reading the file:', readErr);
+                        return;
+                    }
+
+                    // 3) Wrap the modified code with explanation comments
+                    const commentedModifiedContent = [
+                        `/* Explanation: ${explanation} */`,
+                        modifiedContent,
+                        `/* End Explanation */`
+                    ].join('\n');
+
+                    // 4) Replace the violated snippet in the content
+                    const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(escapeRegExp(violatedCode), 'gs');
+                    const finalContent = originalContent.replace(regex, commentedModifiedContent);
+
+                    // 5) Write it back to disk
+                    fs1.writeFile(localFilePath, finalContent, 'utf8', (writeErr) => {
+                        if (writeErr) {
+                            console.error('Error writing updated file:', writeErr);
+                            return;
+                        }
+
+                        // 6) Re-open the updated file
+                        vscode.workspace.openTextDocument(localFilePath)
+                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One)
+                                .then(editor => {
+                                    const newContent = doc.getText();
+
+                                    // 7) Decoration types
+                                    const diffDeco = vscode.window.createTextEditorDecorationType({
+                                        backgroundColor: 'rgba(255,255,0,0.4)',  // yellow for diffs
+                                    });
+                                    const explainDeco = vscode.window.createTextEditorDecorationType({
+                                        backgroundColor: 'rgba(0,255,255,0.3)',  // cyan for explanation
+                                        isWholeLine: false,
+                                        border: '1px dashed rgba(0,255,255,0.6)',
+                                    });
+
+                                    // 8) Find and decorate the diff ranges
+                                    const diffs = diffChars(originalContent, newContent);
+                                    const diffRanges: vscode.DecorationOptions[] = [];
+                                    let offset = 0;
+                                    for (const part of diffs) {
+                                        if (!part.removed) {
+                                            const length = part.value.length;
+                                            if (part.added) {
+                                                const start = doc.positionAt(offset);
+                                                const end = doc.positionAt(offset + length);
+                                                diffRanges.push({ range: new vscode.Range(start, end) });
+                                            }
+                                            offset += length;
+                                        }
+                                    }
+                                    editor.setDecorations(diffDeco, diffRanges);
+
+                                    // 9) Find and decorate the explanation comment block
+                                    const explainMatches: vscode.DecorationOptions[] = [];
+                                    const explainRegex = /\/\* Explanation:[\s\S]*?\*\/\s*[\s\S]*?\s*\/\* End Explanation \*\//g;
+                                    let match: RegExpExecArray | null;
+                                    while ((match = explainRegex.exec(newContent)) !== null) {
+                                        const startPos = doc.positionAt(match.index);
+                                        const endPos = doc.positionAt(match.index + match[0].length);
+                                        explainMatches.push({ range: new vscode.Range(startPos, endPos) });
+                                    }
+                                    editor.setDecorations(explainDeco, explainMatches);
+                                },
+                                    showErr => console.error('Error showing document:', showErr))
+                                , docErr => console.error('Error opening document:', docErr));
+                    });
+                });
+                break;
+
+
+
+
+
+            /*
+            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT:
+                console.log("COME");
+                console.log(jsonData);
+
+                // 1) Extract incoming fields
+                var localFilePath = jsonData.data.filePath as string;
+                var modifiedContent = jsonData.data.modifiedFileContent as string;
+                var violatedCode = jsonData.data.violatedCode as string;
+                // (explanation available if you want to inject as a comment)
+
+                // 2) Helper to escape RegExp metachars
+                var escapeRegExp = (s: string) =>
+                    s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                // 3) Read the original file off disk
+                fs1.readFile(localFilePath, 'utf8', (err, originalContent) => {
+                    if (err) {
+                        console.error('Error reading the file:', err);
+                        return;
+                    }
+
+                    // 4) Produce the “fixed” content
+                    const regex = new RegExp(escapeRegExp(violatedCode), 'gs');
+                    const finalContent = originalContent.replace(regex, modifiedContent);
+
+                    // 5) Show the real file side-by-side in Column 1
+                    vscode.workspace.openTextDocument(localFilePath)
+                        .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One),
+                            openErr => console.error(openErr));
+
+                    // 6) Prepare your yellow highlight decoration
+                    const highlightDeco = vscode.window.createTextEditorDecorationType({
+                        backgroundColor: 'rgba(255,255,0,0.4)'
+                    });
+
+                    // 7) Clear out any old diffs
+                    diffChunks.length = 0;
+
+                    // 8) Open an unsaved Java doc with the new content in Column 2
+                    vscode.workspace.openTextDocument({ language: 'java', content: finalContent })
+                        .then(newDoc =>
+                            vscode.window.showTextDocument(newDoc, vscode.ViewColumn.Two)
+                                .then(editor => {
+                                    // 9) Compute a char-level diff
+                                    const diffs = diffChars(originalContent, finalContent);
+                                    let offset = 0;
+                                    const decorations: vscode.DecorationOptions[] = [];
+
+                                    for (const part of diffs) {
+                                        if (!part.removed) {
+                                            const len = part.value.length;
+                                            if (part.added) {
+                                                const start = newDoc.positionAt(offset);
+                                                const end = newDoc.positionAt(offset + len);
+
+                                                // 10) Highlight the added range
+                                                decorations.push({ range: new vscode.Range(start, end) });
+
+                                                // 11) Record this chunk (with exact offsets)
+                                                const startOffset = newDoc.offsetAt(start);
+                                                const endOffset = newDoc.offsetAt(end);
+                                                // …after you do:
+                                                // fs1.readFile(localFilePath, 'utf8', (err, originalContent) => { … })
+                                                const fullOriginalContent = originalContent;
+
+                                                // then, when you push each diff:
+                                                diffChunks.push({
+                                                    range: new vscode.Range(start, end),
+                                                    newText: part.value,
+                                                    originalText: violatedCode,
+                                                    fullOriginalContent:fullOriginalContent,          // ← add this
+                                                    filePath: localFilePath,
+                                                    startOffset,
+                                                    endOffset
+                                                });
+
+                                            }
+                                            offset += len;
+                                        }
+                                    }
+
+                                    // 12) Apply highlights and refresh CodeLenses
+                                    editor.setDecorations(highlightDeco, decorations);
+                                    vscode.commands.executeCommand('editor.action.codeLens.refresh');
+                                },
+                                    showErr => console.error(showErr)
+                                ),
+                            docErr => console.error(docErr)
+                        );
+                });
+                break;
+            */
+
+
+
+            /*
+            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT:
+                console.log("COME");
+                console.log(jsonData);
+
+                var localFilePath = jsonData.data.filePath as string;
+                var modifiedContent = jsonData.data.modifiedFileContent as string;
+                var violatedCode = jsonData.data.violatedCode as string;
+                // (explanation is available if you want to inject it as a comment)
+
+                // 1) Read original file
+                fs1.readFile(localFilePath, 'utf8', (err, originalContent) => {
+                    if (err) {
+                        console.error('Error reading the file:', err);
+                        return;
+                    }
+
+                    // 2) Replace the violated snippet
+                    var escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(escapeRegExp(violatedCode), 'gs');
+                    const finalContent = originalContent.replace(regex, modifiedContent);
+
+                    // 3) Open the original on Column One
+                    vscode.workspace.openTextDocument(localFilePath)
+                        .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One),
+                            openErr => console.error(openErr));
+
+                    // 4) Create a decoration type for highlighting diffs
+                    const highlightDeco = vscode.window.createTextEditorDecorationType({
+                        backgroundColor: 'rgba(255,255,0,0.4)'
+                    });
+
+                    // 5) Open an untitled Java doc with the edited content on Column Two
+                    vscode.workspace.openTextDocument({ language: 'java', content: finalContent })
+                        .then(newDoc =>
+                            vscode.window.showTextDocument(newDoc, vscode.ViewColumn.Two)
+                                .then(editor => {
+                                    // 6) Compute the diff between original vs. final
+                                    const diffs = diffChars(originalContent, finalContent);
+
+                                    // 7) Walk the diff to collect ranges of *added* or *changed* text
+                                    const decorations: vscode.DecorationOptions[] = [];
+                                    let offset = 0;
+                                    for (const part of diffs) {
+                                        if (!part.removed) {
+                                            const length = part.value.length;
+                                            if (part.added) {
+                                                const start = newDoc.positionAt(offset);
+                                                const end = newDoc.positionAt(offset + length);
+                                                decorations.push({ range: new vscode.Range(start, end) });
+                                            }
+                                            offset += length;
+                                        }
+                                    }
+
+                                    // 8) Apply the highlighting on Column Two
+                                    editor.setDecorations(highlightDeco, decorations);
+                                },
+                                    showErr => console.error(showErr)
+                                ),
+                            docErr => console.error(docErr)
+                        );
+                });
+                break;
+            */
+
+
+
+
+
+            // Within your switch/case block:
+            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT_backup:
+                console.log("COME");
+                console.log(jsonData);
+
+                // Extract the incoming data
+                localFilePath = jsonData.data.filePath;
+                modifiedContent = jsonData.data.modifiedFileContent;
+                explanation = jsonData.data.explanation;
+                violatedCode = jsonData.data.violatedCode;
+
+                // Helper function: Escape special characters in a string for use in a regular expression.
+                var escapeRegExp = (string: string): string => {
+                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& refers to the entire match.
                 };
 
-                // Read the file content
+                // Read the file's content from the given local file path.
                 fs1.readFile(localFilePath, 'utf8', (err, data) => {
                     if (err) {
                         console.error('Error reading the file:', err);
                         return;
                     }
 
-                    // Escape the violatedCode for use in a regular expression
+                    // Prepare the regular expression to find the code that violates the rule.
                     const escapedViolatedCode = escapeRegExp(violatedCode);
-
-                    // Create a regular expression to find the violated code, with the 's' flag for dotAll mode
                     const regex = new RegExp(escapedViolatedCode, 'gs');
 
-                    // Replace the violated code with the modified content
+                    // Replace the violated code with the modified content.
                     const newContent = data.replace(regex, modifiedContent);
 
-                    // Format the explanation as a comment
-                    //const comment = `/*\n${explanation}\n*/\n\n`;
-
+                    // (Optional) Format the explanation as a comment.
+                    // For now this is left empty; you could uncomment and use the next line if desired.
+                    // const comment = `/*\n${explanation}\n*/\n\n`;
                     const comment = ``;
 
-                    // Prepare the final content with the explanation
+                    // Combine the comment and new content to form the final content.
                     const finalContent = `${comment}${newContent}`;
 
-                    // Write the updated content back to the file
-                    fs1.writeFile(localFilePath, finalContent, 'utf8', (err) => {
-                        if (err) {
-                            console.error('Error writing to the file:', err);
-                        } else {
-                            console.log('File updated successfully.');
-                        }
+                    // Use the VS Code API to open the original file in the current editor column.
+                    vscode.workspace.openTextDocument(localFilePath).then(doc => {
+                        vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+                    }, (openError) => {
+                        console.error("Error opening the original file:", openError);
+                    });
+
+                    // Create a new unsaved Java file document with the final content.
+                    // This document is treated as "unnamed.java" by its language mode.
+                    vscode.workspace.openTextDocument({
+                        language: 'java',
+                        content: finalContent
+                    }).then(newDoc => {
+                        // Open the new document in the right editor column.
+                        vscode.window.showTextDocument(newDoc, vscode.ViewColumn.Two);
+                    }, (docError) => {
+                        console.error("Error creating new Java document:", docError);
                     });
                 });
                 break;
+
+
+            /*
+                        case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT:
+            
+                            //modifiedFileContent is just the suggestion from GPT, not the whole codefile with the modifications. 
+                            //JUST THE MODIFICATIONS
+                            console.log("COME");
+                            console.log(jsonData);
+                            const localFilePath = jsonData.data.filePath;
+                            const modifiedContent = jsonData.data.modifiedFileContent;
+                            const explanation = jsonData.data.explanation;
+                            const violatedCode = jsonData.data.violatedCode;
+            
+                            // Function to escape special characters in a string for use in a regular expression
+                            const escapeRegExp = (string: string): string => {
+                                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+                            };
+            
+                            // Read the file content
+                            fs1.readFile(localFilePath, 'utf8', (err, data) => {
+                                if (err) {
+                                    console.error('Error reading the file:', err);
+                                    return;
+                                }
+            
+                                // Escape the violatedCode for use in a regular expression
+                                const escapedViolatedCode = escapeRegExp(violatedCode);
+            
+                                // Create a regular expression to find the violated code, with the 's' flag for dotAll mode
+                                const regex = new RegExp(escapedViolatedCode, 'gs');
+            
+                                // Replace the violated code with the modified content
+                                const newContent = data.replace(regex, modifiedContent);
+            
+                                // Format the explanation as a comment
+                                
+                                const comment = ``;
+            
+                                // Prepare the final content with the explanation
+                                const finalContent = `${comment}${newContent}`;
+            
+                                // Write the updated content back to the file
+                                fs1.writeFile(localFilePath, finalContent, 'utf8', (err) => {
+                                    if (err) {
+                                        console.error('Error writing to the file:', err);
+                                    } else {
+                                        console.log('File updated successfully.');
+                                    }
+                                });
+                            });
+                            break;
+                        */
 
 
             case WebSocketConstants.RECEIVE_CONVERTED_JAVA_SNIPPET_MSG:
@@ -284,17 +617,27 @@ export class FollowAndAuthorRulesProcessor {
                     this.ruleTable[ruleIndex] = ruleInfo;
                     this.updateRuleTableFile();
 
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_UPDATE_RULE_MSG,
-                        data: jsonData.data
-                    }));
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            command: WebSocketConstants.SEND_UPDATE_RULE_MSG,
+                            data: jsonData.data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
+
 
                 }
                 else {
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_FAILED_UPDATE_RULE_MSG,
-                        data: jsonData.data
-                    }));
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            command: WebSocketConstants.SEND_FAILED_UPDATE_RULE_MSG,
+                            data: jsonData.data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
+
                 }
                 // Update the rule by ruleID with ruleInfo here
                 break;
@@ -314,17 +657,28 @@ export class FollowAndAuthorRulesProcessor {
                     this.tagTable[tagIndex] = updateTagInfo;
                     this.updateTagTableFile();
 
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_UPDATE_TAG_MSG,
-                        data: data
-                    }));
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            command: WebSocketConstants.SEND_UPDATE_TAG_MSG,
+                            data: data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
+
 
                 }
                 else {
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_FAILED_UPDATE_TAG_MSG,
-                        data: data
-                    }));
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+
+                            command: WebSocketConstants.SEND_FAILED_UPDATE_TAG_MSG,
+                            data: data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
+
                 }
 
                 break;
@@ -338,13 +692,18 @@ export class FollowAndAuthorRulesProcessor {
 
                     try {
                         const xmlContent = await convertToXML(tempJavaFilePath); // Adjusted call
-                        this.ws?.send(JSON.stringify({
-                            command: WebSocketConstants.SEND_XML_FROM_CODE_MSG,
-                            data: {
-                                xmlText: xmlContent,
-                                messageID: jsonData.data.messageID
-                            }
-                        }));
+                        if (this.ws?.readyState === WebSocket.OPEN) {
+                            this.ws.send(JSON.stringify({
+                                command: WebSocketConstants.SEND_XML_FROM_CODE_MSG,
+                                data: {
+                                    xmlText: xmlContent,
+                                    messageID: jsonData.data.messageID
+                                }
+                            }));
+                        } else {
+                            console.warn('Skipping send: WebSocket not open');
+                        }
+
 
 
                     } catch (error) {
@@ -363,21 +722,31 @@ export class FollowAndAuthorRulesProcessor {
 
                 const ruleAlreadyExists = this.checkRuleExists(newRuleID, newRuleInfo);
                 if (ruleAlreadyExists) {
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            command: WebSocketConstants.SEND_FAILED_NEW_RULE_MSG,
+                            data: jsonData.data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
 
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_FAILED_NEW_RULE_MSG,
-                        data: jsonData.data
-                    }));
 
                 }
                 else {
                     //console.log("here");
                     this.ruleTable.push(newRuleInfo);
                     this.updateRuleTableFile();
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_NEW_RULE_MSG,
-                        data: jsonData.data
-                    }));
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+
+                            command: WebSocketConstants.SEND_NEW_RULE_MSG,
+                            data: jsonData.data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
+
 
                 }
 
@@ -397,20 +766,31 @@ export class FollowAndAuthorRulesProcessor {
                 if (tagAlreadyExists) {
 
 
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_FAILED_NEW_TAG_MSG,
-                        data: data
-                    }));
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            command: WebSocketConstants.SEND_FAILED_NEW_TAG_MSG,
+                            data: data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
+
 
 
                 }
                 else {
                     this.tagTable.push(newTagInfo);
                     this.updateTagTableFile();
-                    this.ws?.send(JSON.stringify({
-                        command: WebSocketConstants.SEND_NEW_TAG_MSG,
-                        data: data
-                    }));
+                    if (this.ws?.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+
+                            command: WebSocketConstants.SEND_NEW_TAG_MSG,
+                            data: data
+                        }));
+                    } else {
+                        console.warn('Skipping send: WebSocket not open');
+                    }
+
                 }
                 // Add a new tag based on newTagID and newTagInfo here
                 break;

@@ -137,13 +137,18 @@ export class MiningRulesProcessor {
                 LearnDesignRules.analyzeDatabases(this.currentProjectPath, jsonData.data.parameters, jsonData.data.algorithm)
                     .then((results: { [key: string]: string }) => {
                         console.log("Analysis Results:", results);
-                        this.ws?.send(JSON.stringify({
-                            command:WebSocketConstants.SEND_MINED_DESIGN_RULES,
-                            data:{
-                                algorithm:jsonData.data.algorithm,
-                                minedFrequentItemSets:results
-                            }
-                        }));
+                        if (this.ws?.readyState === WebSocket.OPEN) {
+                            this.ws.send(JSON.stringify({ 
+                                command:WebSocketConstants.SEND_MINED_DESIGN_RULES,
+                                data:{
+                                    algorithm:jsonData.data.algorithm,
+                                    minedFrequentItemSets:results
+                                }
+                             }));
+                          } else {
+                            console.warn('Skipping send: WebSocket not open');
+                          }
+                          
 
                     })
                     .catch((error: any) => {
