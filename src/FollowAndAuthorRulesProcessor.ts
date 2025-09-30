@@ -218,17 +218,35 @@ export class FollowAndAuthorRulesProcessor {
                 }
                 break;
 
+
+                
+
             case WebSocketConstants.RECEIVE_LLM_SNIPPET_MSG:
                 console.log("CAME HERE");
+
+
                 const code = jsonData.data.code;
                 // Format the explanation as a multiline comment
                 const explanationAsComment = `/*\n * ${jsonData.data.explanation.replace(/\n/g, '\n * ')}\n */\n\n`;
-
-                // Create a new split window with the explanation comment at the top and the code below
-                vscode.workspace.openTextDocument({ content: explanationAsComment + code, language: 'java' }) // Adjust the language as necessary
-                    .then(document => {
-                        vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Beside });
+                
+                // Create a new URI for the untitled document with a specific name
+                const fileName = vscode.Uri.parse('untitled:' + vscode.workspace.rootPath + '/edit_fix_window.java');
+                
+                // Open the untitled document with the specific name and language
+                vscode.workspace.openTextDocument(fileName).then(document => {
+                    // Insert the explanation comment and the code into the document
+                    const edit = new vscode.WorkspaceEdit();
+                    edit.insert(document.uri, new vscode.Position(0, 0), explanationAsComment + code);
+                
+                    return vscode.workspace.applyEdit(edit).then(success => {
+                        if (success) {
+                            vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Beside });
+                        } else {
+                            console.log('Error applying edit to the document');
+                        }
                     });
+                });
+                
                 break;
 
             case WebSocketConstants.RECEIVE_SNIPPET_XML_MSG:
