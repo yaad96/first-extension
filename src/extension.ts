@@ -17,6 +17,7 @@ import { diffChunks, DiffChunk } from './FollowAndAuthorRulesProcessor';
 //const readFileAsync = promisify(fs.readFile);
 
 const port = 8887;
+let activeWebSocket: WebSocket.WebSocket | null = null;
 
 
 
@@ -27,9 +28,73 @@ export function activate(context: vscode.ExtensionContext) {
     const server = new WebSocket.Server({ port });
     console.log(`WebSocket server started on port: ${port}`);
 
+    context.subscriptions.push(vscode.commands.registerCommand('activedoc.mineRules', () => {
+        if (!vscode.workspace.workspaceFolders) {
+            vscode.window.showWarningMessage('No workspace is open.');
+            return;
+        }
+
+        if (!activeWebSocket || activeWebSocket.readyState !== WebSocket.OPEN) {
+            vscode.window.showWarningMessage('ActiveDoc client is not connected.');
+            return;
+        }
+
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showInformationMessage('No active editor.');
+            return;
+        }
+
+        const document = editor.document;
+        const selection = editor.selection;
+        const wordRange = document.getWordRangeAtPosition(selection.start);
+        if (!wordRange) {
+            vscode.window.showInformationMessage('No word selected');
+            return;
+        }
+
+        const word = document.getText(wordRange);
+        const startOffset = document.offsetAt(wordRange.start);
+        const startLineOffset = wordRange.start.character;
+        const lineNumber = wordRange.start.line + 1; // VS Code lines are zero-based
+        const filePath = document.uri.fsPath;
+        const formattedFilePath = filePath.replace(/\\/g, '/');
+
+        const minigDataInfo = {
+            filePath: formattedFilePath,
+            startOffset: startOffset.toString(),
+            startLineOffset: startLineOffset.toString(),
+            lineNumber: lineNumber.toString(),
+            text: word
+        };
+
+        activeWebSocket.send(JSON.stringify({
+            command: WebSocketConstants.SEND_ELEMENT_INFO_FOR_MINE_RULES,
+            data: minigDataInfo
+        }));
+
+        const doiProcessing = DoiProcessing.getInstance();
+
+        const doiData = {
+            recentVisitedFiles: doiProcessing.getVisitedFiles(),
+            recentVisitedElements: doiProcessing.getVisitedElements()
+        };
+
+        activeWebSocket.send(JSON.stringify({
+            command: WebSocketConstants.SEND_DOI_INFORMATION,
+            data: doiData
+        }));
+
+        activeWebSocket.send(JSON.stringify({
+            command: WebSocketConstants.SEND_REQUEST_MINE_RULES_FOR_ELEMENT,
+            data: ""
+        }));
+    }));
+
     if (vscode.workspace.workspaceFolders) {
 
         server.on('connection', (ws) => {
+            activeWebSocket = ws;
 
             console.log('Client connected');
 
@@ -79,7 +144,6 @@ export function activate(context: vscode.ExtensionContext) {
                     } catch (error) {
                         console.error('Failed to generate project hierarchy:', error);
                     }
-
                     fileChangeManager.convertAllJavaFilesToXML(projectPath).then(() => {
                         console.log('All Java files have been converted to XML and stored.');
                         fileChangeManager.sendXmlFilesSequentially().then(() => {
@@ -112,63 +176,6 @@ export function activate(context: vscode.ExtensionContext) {
                         }).catch(error=>console.error("Error sending xml files : ",error));
                         // Here you can optionally handle the stored XML data, e.g., send via WebSocket
                     }).catch(error => console.error('Error converting Java files to XML:', error));
-
-
-
-                    // Adding "Mine Rules" command functionality
-                    context.subscriptions.push(vscode.commands.registerCommand('activedoc.mineRules', () => {
-                        const editor = vscode.window.activeTextEditor;
-                        if (editor) {
-                            const document = editor.document;
-                            const selection = editor.selection;
-                            const wordRange = document.getWordRangeAtPosition(selection.start);
-                            if (!wordRange) {
-                                vscode.window.showInformationMessage("No word selected");
-                                return;
-                            }
-                            const word = document.getText(wordRange);
-                            const startOffset = document.offsetAt(wordRange.start);
-                            const startLineOffset = wordRange.start.character;
-                            const lineNumber = wordRange.start.line + 1; // VS Code lines are zero-based
-                            const filePath = document.uri.fsPath;
-                            const formattedFilePath = filePath.replace(/\\/g, '/');
-
-                            const minigDataInfo = {
-                                //filePath: document.uri.fsPath,
-                                filePath:formattedFilePath,
-                                startOffset: startOffset.toString(),
-                                startLineOffset: startLineOffset.toString(),
-                                lineNumber: lineNumber.toString(),
-                                text: word
-                            };
-
-
-                            ws.send(JSON.stringify({
-                                command: WebSocketConstants.SEND_ELEMENT_INFO_FOR_MINE_RULES,
-                                data: minigDataInfo
-                            }));
-
-                            const doiProcessing = DoiProcessing.getInstance();
-
-                            const doiData = {
-                                recentVisitedFiles:doiProcessing.getVisitedFiles(),
-                                recentVisitedElements:doiProcessing.getVisitedElements()
-                            };
-
-                            ws.send(JSON.stringify({
-                                command:WebSocketConstants.SEND_DOI_INFORMATION,
-                                data:doiData
-                            }));
-
-
-                            ws.send(JSON.stringify({
-                                command: WebSocketConstants.SEND_REQUEST_MINE_RULES_FOR_ELEMENT,
-                                data: ""
-                            }));
-
-                        }
-                    }));
-
 
 
 
@@ -211,6 +218,9 @@ export function activate(context: vscode.ExtensionContext) {
 
             ws.on('close', () => {
                 console.log('Client disconnected');
+                if (activeWebSocket === ws) {
+                    activeWebSocket = null;
+                }
             });
         });
     }

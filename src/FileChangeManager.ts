@@ -27,78 +27,29 @@ export class FileChangeManager {
         //second argument to the debounce function sets the delay timer
         this.debouncedHandleChangeTextDocument = debounce(this.handleChangeTextDocument.bind(this), Constants.DEBOUNCER_DELAY);
         this.watchWorkspaceChanges();
-        if (vscode.workspace.workspaceFolders) {
-            //const projectPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-            /*this.convertAllJavaFilesToXML(this.projectPath).then(() => {
-                console.log('All Java files have been converted to XML and stored.');
-                this.sendXmlFilesSequentially();
-                // Here you can optionally handle the stored XML data, e.g., send via WebSocket
-            }).catch(error => console.error('Error converting Java files to XML:', error));*/
+        this.syncCollaborators();
+    }
 
-            try {
-                const ins = FollowAndAuthorRulesProcessor.getInstance();
-                if (!ins) {
-                    // If getInstance() returned null, we create a new instance
-                    // But since our getInstance never returns null (creates a new instance if null),
-                    // This check is just for demonstrating a similar approach to catching NullPointerException in Java.
-                    throw new Error('Instance is null'); // Simulating a scenario to create a new instance
-                }
-                ins.updateProjectWs(this.projectPath, this.ws);
-            } catch (error) {
-                if (error instanceof Error && error.message === 'Instance is null') {
-                    // This block is for handling the specific error thrown above,
-                    // simulating the catch for NullPointerException in Java.
-                    // In practical TypeScript, this pattern is rarely needed due to the dynamic nature of JS and the way we handle nulls/undefined values.
-                    new FollowAndAuthorRulesProcessor(projectPath, this.ws); // Assuming this will set the instance internally or perform necessary actions
-                } else {
-                    console.error("An unexpected error occurred:", error);
-                    // Handle or log the error appropriately
-                }
-            }
-
-            try {
-                const ins = MiningRulesProcessor.getInstance();
-                if (!ins) {
-                    // If getInstance() returned null, we create a new instance
-                    // But since our getInstance never returns null (creates a new instance if null),
-                    // This check is just for demonstrating a similar approach to catching NullPointerException in Java.
-                    throw new Error('Instance is null'); // Simulating a scenario to create a new instance
-                }
-                ins.updateProjectWs(this.projectPath, this.ws);
-            } catch (error) {
-                if (error instanceof Error && error.message === 'Instance is null') {
-                    // This block is for handling the specific error thrown above,
-                    // simulating the catch for NullPointerException in Java.
-                    // In practical TypeScript, this pattern is rarely needed due to the dynamic nature of JS and the way we handle nulls/undefined values.
-                    new MiningRulesProcessor(projectPath, this.ws); // Assuming this will set the instance internally or perform necessary actions
-                } else {
-                    console.error("An unexpected error occurred:", error);
-                    // Handle or log the error appropriately
-                }
-            }
-            try {
-                const ins = DoiProcessing.getInstance();
-                if (!ins) {
-                    // If getInstance() returned null, we create a new instance
-                    // But since our getInstance never returns null (creates a new instance if null),
-                    // This check is just for demonstrating a similar approach to catching NullPointerException in Java.
-                    throw new Error('Instance is null'); // Simulating a scenario to create a new instance
-                }
-                ins.updateProjectWs(this.projectPath, this.ws);
-            } catch (error) {
-                if (error instanceof Error && error.message === 'Instance is null') {
-                    // This block is for handling the specific error thrown above,
-                    // simulating the catch for NullPointerException in Java.
-                    // In practical TypeScript, this pattern is rarely needed due to the dynamic nature of JS and the way we handle nulls/undefined values.
-                    new DoiProcessing(projectPath, this.ws); // Assuming this will set the instance internally or perform necessary actions
-                } else {
-                    console.error("An unexpected error occurred:", error);
-                    // Handle or log the error appropriately
-                }
-            }
-            
-
+    private syncCollaborators(): void {
+        if (!this.ws) {
+            console.warn('FileChangeManager sync skipped: WebSocket not available');
+            return;
         }
+
+        const follow = FollowAndAuthorRulesProcessor.getInstance();
+        follow.updateProjectWs(this.projectPath, this.ws);
+
+        const mining = MiningRulesProcessor.getInstance();
+        mining.updateProjectWs(this.projectPath, this.ws);
+
+        const doi = DoiProcessing.getInstance();
+        doi.updateProjectWs(this.projectPath, this.ws);
+    }
+
+    private updateConnection(projectPath: string, ws: WebSocket): void {
+        this.projectPath = projectPath;
+        this.ws = ws;
+        this.syncCollaborators();
     }
 
     /*public void checkChangedProject(){
@@ -108,6 +59,8 @@ export class FileChangeManager {
     public static getInstance(projectPath:string,ws:WebSocket): FileChangeManager {
         if (!FileChangeManager.instance) {
             FileChangeManager.instance = new FileChangeManager(projectPath,ws);
+        } else {
+            FileChangeManager.instance.updateConnection(projectPath, ws);
         }
         return FileChangeManager.instance;
     }
@@ -290,6 +243,7 @@ export class FileChangeManager {
 
 
     public async convertAllJavaFilesToXML(projectPath: string) {
+        this.xmlFiles = [];
         const javaFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(projectPath, '**/*.java'));
         for (const file of javaFiles) {
             const inputFilePath = file.fsPath;

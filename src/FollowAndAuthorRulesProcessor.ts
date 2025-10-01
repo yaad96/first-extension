@@ -74,7 +74,18 @@ export class FollowAndAuthorRulesProcessor {
             const data = await fs.readFile(tagTablePath, { encoding: 'utf8' });
             this.tagTable = JSON.parse(data);
         } catch (error) {
-            console.error('Failed to load tag table:', error);
+            const err = error as NodeJS.ErrnoException;
+            if (err?.code === 'ENOENT') {
+                this.tagTable = [];
+                try {
+                    await fs.writeFile(tagTablePath, JSON.stringify(this.tagTable, null, 2), { encoding: 'utf8' });
+                    console.warn(`Tag table not found. Created default at ${tagTablePath}`);
+                } catch (writeError) {
+                    console.error('Failed to create default tag table:', writeError);
+                }
+            } else {
+                console.error('Failed to load tag table:', error);
+            }
         }
     }
 
@@ -84,7 +95,18 @@ export class FollowAndAuthorRulesProcessor {
             const data = await fs.readFile(ruleTablePath, { encoding: 'utf8' });
             this.ruleTable = JSON.parse(data);
         } catch (error) {
-            console.error('Failed to load rule table:', error);
+            const err = error as NodeJS.ErrnoException;
+            if (err?.code === 'ENOENT') {
+                this.ruleTable = [];
+                try {
+                    await fs.writeFile(ruleTablePath, JSON.stringify(this.ruleTable, null, 2), { encoding: 'utf8' });
+                    console.warn(`Rule table not found. Created default at ${ruleTablePath}`);
+                } catch (writeError) {
+                    console.error('Failed to create default rule table:', writeError);
+                }
+            } else {
+                console.error('Failed to load rule table:', error);
+            }
         }
     }
 
@@ -138,91 +160,101 @@ export class FollowAndAuthorRulesProcessor {
                 break;
 
 
-            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT:
+            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT: {
                 console.log("COME");
                 console.log(jsonData);
 
-                // 1) Extract incoming fields (including explanation)
-                var localFilePath = jsonData.data.filePath as string;
-                var modifiedContent = jsonData.data.modifiedFileContent as string;
-                var violatedCode = jsonData.data.violatedCode as string;
-                var explanation = jsonData.data.explanation as string;
+                const localFilePath = jsonData.data.filePath as string;
+                const modifiedContent = jsonData.data.modifiedFileContent as string;
+                const violatedCode = jsonData.data.violatedCode as string;
+                const explanation = jsonData.data.explanation as string;
 
-                // 2) Read the original file
                 fs1.readFile(localFilePath, 'utf8', (readErr, originalContent) => {
                     if (readErr) {
                         console.error('Error reading the file:', readErr);
                         return;
                     }
 
-                    // 3) Wrap the modified code with explanation comments
                     const commentedModifiedContent = [
                         `/* Explanation: ${explanation} */`,
                         modifiedContent,
                         `/* End Explanation */`
                     ].join('\n');
 
-                    // 4) Replace the violated snippet in the content
                     const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(escapeRegExp(violatedCode), 'gs');
                     const finalContent = originalContent.replace(regex, commentedModifiedContent);
 
-                    // 5) Write it back to disk
-                    fs1.writeFile(localFilePath, finalContent, 'utf8', (writeErr) => {
-                        if (writeErr) {
-                            console.error('Error writing updated file:', writeErr);
-                            return;
-                        }
+                    vscode.workspace.openTextDocument(localFilePath)
+                        .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One),
+                            openErr => console.error('Error opening original document:', openErr));
 
-                        // 6) Re-open the updated file
-                        vscode.workspace.openTextDocument(localFilePath)
-                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One)
+                    diffChunks.length = 0;
+
+                    vscode.workspace.openTextDocument({ language: 'java', content: finalContent })
+                        .then(newDoc =>
+                            vscode.window.showTextDocument(newDoc, { viewColumn: vscode.ViewColumn.Two, preview: false })
                                 .then(editor => {
-                                    const newContent = doc.getText();
-
-                                    // 7) Decoration types
+                                    const diffs = diffChars(originalContent, finalContent);
                                     const diffDeco = vscode.window.createTextEditorDecorationType({
-                                        backgroundColor: 'rgba(255,255,0,0.4)',  // yellow for diffs
+                                        backgroundColor: 'rgba(255,255,0,0.4)'
                                     });
                                     const explainDeco = vscode.window.createTextEditorDecorationType({
-                                        backgroundColor: 'rgba(0,255,255,0.3)',  // cyan for explanation
+                                        backgroundColor: 'rgba(0,255,255,0.3)',
                                         isWholeLine: false,
-                                        border: '1px dashed rgba(0,255,255,0.6)',
+                                        border: '1px dashed rgba(0,255,255,0.6)'
                                     });
 
-                                    // 8) Find and decorate the diff ranges
-                                    const diffs = diffChars(originalContent, newContent);
                                     const diffRanges: vscode.DecorationOptions[] = [];
                                     let offset = 0;
                                     for (const part of diffs) {
-                                        if (!part.removed) {
-                                            const length = part.value.length;
-                                            if (part.added) {
-                                                const start = doc.positionAt(offset);
-                                                const end = doc.positionAt(offset + length);
-                                                diffRanges.push({ range: new vscode.Range(start, end) });
-                                            }
-                                            offset += length;
+                                        if (part.removed) {
+                                            continue;
                                         }
+
+                                        const length = part.value.length;
+                                        if (part.added) {
+                                            const start = newDoc.positionAt(offset);
+                                            const end = newDoc.positionAt(offset + length);
+                                            diffRanges.push({ range: new vscode.Range(start, end) });
+
+                                            const startOffset = newDoc.offsetAt(start);
+                                            const endOffset = newDoc.offsetAt(end);
+
+                                            diffChunks.push({
+                                                range: new vscode.Range(start, end),
+                                                newText: part.value,
+                                                originalText: violatedCode,
+                                                fullOriginalContent: originalContent,
+                                                filePath: localFilePath,
+                                                startOffset,
+                                                endOffset
+                                            });
+                                        }
+                                        offset += length;
                                     }
+
                                     editor.setDecorations(diffDeco, diffRanges);
 
-                                    // 9) Find and decorate the explanation comment block
                                     const explainMatches: vscode.DecorationOptions[] = [];
                                     const explainRegex = /\/\* Explanation:[\s\S]*?\*\/\s*[\s\S]*?\s*\/\* End Explanation \*\//g;
                                     let match: RegExpExecArray | null;
-                                    while ((match = explainRegex.exec(newContent)) !== null) {
-                                        const startPos = doc.positionAt(match.index);
-                                        const endPos = doc.positionAt(match.index + match[0].length);
+                                    while ((match = explainRegex.exec(finalContent)) !== null) {
+                                        const startPos = newDoc.positionAt(match.index);
+                                        const endPos = newDoc.positionAt(match.index + match[0].length);
                                         explainMatches.push({ range: new vscode.Range(startPos, endPos) });
                                     }
                                     editor.setDecorations(explainDeco, explainMatches);
+
+                                    vscode.commands.executeCommand('editor.action.codeLens.refresh');
                                 },
-                                    showErr => console.error('Error showing document:', showErr))
-                                , docErr => console.error('Error opening document:', docErr));
-                    });
+                                    showErr => console.error('Error showing modified document:', showErr)
+                                ),
+                            err => console.error('Error opening modified document:', err)
+                        );
                 });
                 break;
+            }
 
 
 
@@ -395,63 +427,51 @@ export class FollowAndAuthorRulesProcessor {
 
 
             // Within your switch/case block:
-            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT_backup:
+            case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT_backup: {
                 console.log("COME");
                 console.log(jsonData);
 
-                // Extract the incoming data
-                localFilePath = jsonData.data.filePath;
-                modifiedContent = jsonData.data.modifiedFileContent;
-                explanation = jsonData.data.explanation;
-                violatedCode = jsonData.data.violatedCode;
+                const localFilePath = jsonData.data.filePath;
+                const modifiedContent = jsonData.data.modifiedFileContent;
+                const explanation = jsonData.data.explanation;
+                const violatedCode = jsonData.data.violatedCode;
 
-                // Helper function: Escape special characters in a string for use in a regular expression.
-                var escapeRegExp = (string: string): string => {
-                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& refers to the entire match.
+                const escapeRegExp = (string: string): string => {
+                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 };
 
-                // Read the file's content from the given local file path.
                 fs1.readFile(localFilePath, 'utf8', (err, data) => {
                     if (err) {
                         console.error('Error reading the file:', err);
                         return;
                     }
 
-                    // Prepare the regular expression to find the code that violates the rule.
                     const escapedViolatedCode = escapeRegExp(violatedCode);
                     const regex = new RegExp(escapedViolatedCode, 'gs');
 
-                    // Replace the violated code with the modified content.
                     const newContent = data.replace(regex, modifiedContent);
 
-                    // (Optional) Format the explanation as a comment.
-                    // For now this is left empty; you could uncomment and use the next line if desired.
-                    // const comment = `/*\n${explanation}\n*/\n\n`;
                     const comment = ``;
 
-                    // Combine the comment and new content to form the final content.
                     const finalContent = `${comment}${newContent}`;
 
-                    // Use the VS Code API to open the original file in the current editor column.
                     vscode.workspace.openTextDocument(localFilePath).then(doc => {
                         vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
                     }, (openError) => {
                         console.error("Error opening the original file:", openError);
                     });
 
-                    // Create a new unsaved Java file document with the final content.
-                    // This document is treated as "unnamed.java" by its language mode.
                     vscode.workspace.openTextDocument({
                         language: 'java',
                         content: finalContent
                     }).then(newDoc => {
-                        // Open the new document in the right editor column.
                         vscode.window.showTextDocument(newDoc, vscode.ViewColumn.Two);
                     }, (docError) => {
                         console.error("Error creating new Java document:", docError);
                     });
                 });
                 break;
+            }
 
 
             /*
