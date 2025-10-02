@@ -271,6 +271,9 @@ export function activate(context: vscode.ExtensionContext) {
             try {
                 await fs.promises.writeFile(chunk.filePath, content, 'utf8');
                 vscode.window.showInformationMessage('Changes applied to file.');
+                FollowAndAuthorRulesProcessor.getInstance().clearDiffDecorations();
+                diffChunks.length = 0;
+                await vscode.commands.executeCommand('editor.action.codeLens.refresh');
             } catch (err: any) {
                 vscode.window.showErrorMessage(`Failed to write file: ${err.message}`);
             }
@@ -290,8 +293,9 @@ export function activate(context: vscode.ExtensionContext) {
             diffChunks.length = 0;
 
             // 3) Refresh your CodeLenses in the diff-view
-            await vscode.commands.executeCommand('editor.action.codelens.refresh');
+            await vscode.commands.executeCommand('editor.action.codeLens.refresh');
 
+            FollowAndAuthorRulesProcessor.getInstance().clearDiffDecorations();
             vscode.window.showInformationMessage('File reverted to original content.');
         })
     );

@@ -9,7 +9,7 @@ import * as fs1 from 'fs';
 import { FileChangeManager } from './FileChangeManager';
 import { writeToFile, convertToXML, findFileAndReadContent } from './utilites';
 
-import { diffChars } from 'diff';
+import { diffLines } from 'diff';
 
 export interface DiffChunk {
     range: vscode.Range;
@@ -38,6 +38,10 @@ export class FollowAndAuthorRulesProcessor {
     private ruleTable: any[]; // Consider using a more specific type
     private tagTable: Tag[];
     private currentProjectPath: string;
+    private originalDiffDecoration: vscode.TextEditorDecorationType | null = null;
+    private modifiedDiffDecoration: vscode.TextEditorDecorationType | null = null;
+    private originalDiffEditor: vscode.TextEditor | null = null;
+    private modifiedDiffEditor: vscode.TextEditor | null = null;
     public readonly wsMessages: string[] = [
         WebSocketConstants.RECEIVE_EDIT_FIX,
         WebSocketConstants.SEND_CONTENT_FOR_EDIT_FIX,
@@ -117,6 +121,60 @@ export class FollowAndAuthorRulesProcessor {
         this.loadRuleTable();
     }
 
+    private clearDiffDecorationsInternal(): void {
+        if (this.originalDiffDecoration && this.originalDiffEditor) {
+            try {
+                this.originalDiffEditor.setDecorations(this.originalDiffDecoration, []);
+            } catch (error) {
+                console.warn('Failed to clear original diff decoration:', error);
+            }
+            this.originalDiffDecoration.dispose();
+        }
+
+        if (this.modifiedDiffDecoration && this.modifiedDiffEditor) {
+            try {
+                this.modifiedDiffEditor.setDecorations(this.modifiedDiffDecoration, []);
+            } catch (error) {
+                console.warn('Failed to clear modified diff decoration:', error);
+            }
+            this.modifiedDiffDecoration.dispose();
+        }
+
+        this.originalDiffDecoration = null;
+        this.modifiedDiffDecoration = null;
+        this.originalDiffEditor = null;
+        this.modifiedDiffEditor = null;
+    }
+
+    public clearDiffDecorations(): void {
+        this.clearDiffDecorationsInternal();
+    }
+
+    private normalizeNewlines(text: string): string {
+        return text.replace(/\r\n/g, '\n');
+    }
+
+    private denormalizeNewlines(text: string, lineEnding: string): string {
+        if (lineEnding === '\n') {
+            return text.replace(/\r\n/g, '\n');
+        }
+        return this.normalizeNewlines(text).replace(/\n/g, lineEnding);
+    }
+
+    private computeActualOffset(sourceNormalized: string, normalizedIndex: number, lineEnding: string): number {
+        const prefix = sourceNormalized.slice(0, normalizedIndex);
+        return this.denormalizeNewlines(prefix, lineEnding).length;
+    }
+
+    private escapeRegExp(input: string): string {
+        return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    private buildFlexiblePattern(snippet: string): string {
+        const escaped = this.escapeRegExp(snippet);
+        return escaped.replace(/\s+/g, '\\s+');
+    }
+
     public getRuleTableForClient(): string {
         const ruleTableData = JSON.stringify(this.ruleTable);
         return ruleTableData;
@@ -161,98 +219,7 @@ export class FollowAndAuthorRulesProcessor {
 
 
             case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT: {
-                console.log("COME");
-                console.log(jsonData);
-
-                const localFilePath = jsonData.data.filePath as string;
-                const modifiedContent = jsonData.data.modifiedFileContent as string;
-                const violatedCode = jsonData.data.violatedCode as string;
-                const explanation = jsonData.data.explanation as string;
-
-                fs1.readFile(localFilePath, 'utf8', (readErr, originalContent) => {
-                    if (readErr) {
-                        console.error('Error reading the file:', readErr);
-                        return;
-                    }
-
-                    const commentedModifiedContent = [
-                        `/* Explanation: ${explanation} */`,
-                        modifiedContent,
-                        `/* End Explanation */`
-                    ].join('\n');
-
-                    const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(escapeRegExp(violatedCode), 'gs');
-                    const finalContent = originalContent.replace(regex, commentedModifiedContent);
-
-                    vscode.workspace.openTextDocument(localFilePath)
-                        .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One),
-                            openErr => console.error('Error opening original document:', openErr));
-
-                    diffChunks.length = 0;
-
-                    vscode.workspace.openTextDocument({ language: 'java', content: finalContent })
-                        .then(newDoc =>
-                            vscode.window.showTextDocument(newDoc, { viewColumn: vscode.ViewColumn.Two, preview: false })
-                                .then(editor => {
-                                    const diffs = diffChars(originalContent, finalContent);
-                                    const diffDeco = vscode.window.createTextEditorDecorationType({
-                                        backgroundColor: 'rgba(255,255,0,0.4)'
-                                    });
-                                    const explainDeco = vscode.window.createTextEditorDecorationType({
-                                        backgroundColor: 'rgba(0,255,255,0.3)',
-                                        isWholeLine: false,
-                                        border: '1px dashed rgba(0,255,255,0.6)'
-                                    });
-
-                                    const diffRanges: vscode.DecorationOptions[] = [];
-                                    let offset = 0;
-                                    for (const part of diffs) {
-                                        if (part.removed) {
-                                            continue;
-                                        }
-
-                                        const length = part.value.length;
-                                        if (part.added) {
-                                            const start = newDoc.positionAt(offset);
-                                            const end = newDoc.positionAt(offset + length);
-                                            diffRanges.push({ range: new vscode.Range(start, end) });
-
-                                            const startOffset = newDoc.offsetAt(start);
-                                            const endOffset = newDoc.offsetAt(end);
-
-                                            diffChunks.push({
-                                                range: new vscode.Range(start, end),
-                                                newText: part.value,
-                                                originalText: violatedCode,
-                                                fullOriginalContent: originalContent,
-                                                filePath: localFilePath,
-                                                startOffset,
-                                                endOffset
-                                            });
-                                        }
-                                        offset += length;
-                                    }
-
-                                    editor.setDecorations(diffDeco, diffRanges);
-
-                                    const explainMatches: vscode.DecorationOptions[] = [];
-                                    const explainRegex = /\/\* Explanation:[\s\S]*?\*\/\s*[\s\S]*?\s*\/\* End Explanation \*\//g;
-                                    let match: RegExpExecArray | null;
-                                    while ((match = explainRegex.exec(finalContent)) !== null) {
-                                        const startPos = newDoc.positionAt(match.index);
-                                        const endPos = newDoc.positionAt(match.index + match[0].length);
-                                        explainMatches.push({ range: new vscode.Range(startPos, endPos) });
-                                    }
-                                    editor.setDecorations(explainDeco, explainMatches);
-
-                                    vscode.commands.executeCommand('editor.action.codeLens.refresh');
-                                },
-                                    showErr => console.error('Error showing modified document:', showErr)
-                                ),
-                            err => console.error('Error opening modified document:', err)
-                        );
-                });
+                await this.handleLlmModifiedFileContent(jsonData);
                 break;
             }
 
@@ -428,48 +395,7 @@ export class FollowAndAuthorRulesProcessor {
 
             // Within your switch/case block:
             case WebSocketConstants.RECEIVE_LLM_MODIFIED_FILE_CONTENT_backup: {
-                console.log("COME");
-                console.log(jsonData);
-
-                const localFilePath = jsonData.data.filePath;
-                const modifiedContent = jsonData.data.modifiedFileContent;
-                const explanation = jsonData.data.explanation;
-                const violatedCode = jsonData.data.violatedCode;
-
-                const escapeRegExp = (string: string): string => {
-                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                };
-
-                fs1.readFile(localFilePath, 'utf8', (err, data) => {
-                    if (err) {
-                        console.error('Error reading the file:', err);
-                        return;
-                    }
-
-                    const escapedViolatedCode = escapeRegExp(violatedCode);
-                    const regex = new RegExp(escapedViolatedCode, 'gs');
-
-                    const newContent = data.replace(regex, modifiedContent);
-
-                    const comment = ``;
-
-                    const finalContent = `${comment}${newContent}`;
-
-                    vscode.workspace.openTextDocument(localFilePath).then(doc => {
-                        vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
-                    }, (openError) => {
-                        console.error("Error opening the original file:", openError);
-                    });
-
-                    vscode.workspace.openTextDocument({
-                        language: 'java',
-                        content: finalContent
-                    }).then(newDoc => {
-                        vscode.window.showTextDocument(newDoc, vscode.ViewColumn.Two);
-                    }, (docError) => {
-                        console.error("Error creating new Java document:", docError);
-                    });
-                });
+                await this.handleLlmModifiedFileContent(jsonData);
                 break;
             }
 
@@ -906,5 +832,143 @@ export class FollowAndAuthorRulesProcessor {
     }
 
 
+    private applyDiffHighlights(
+        originalEditor: vscode.TextEditor,
+        modifiedEditor: vscode.TextEditor,
+        normalizedOriginal: string,
+        normalizedNew: string,
+        lineEnding: string
+    ): void {
+        const diffs = diffLines(normalizedOriginal, normalizedNew);
+        const addedRanges: vscode.DecorationOptions[] = [];
+        const removedRanges: vscode.DecorationOptions[] = [];
+
+        let originalOffset = 0;
+        let newOffset = 0;
+
+        for (const part of diffs) {
+            const value = part.value ?? '';
+            if (!value.length) {
+                continue;
+            }
+
+            if (part.added) {
+                const actualStart = this.computeActualOffset(normalizedNew, newOffset, lineEnding);
+                const actualLength = this.denormalizeNewlines(value, lineEnding).length;
+                const range = new vscode.Range(
+                    modifiedEditor.document.positionAt(actualStart),
+                    modifiedEditor.document.positionAt(actualStart + actualLength)
+                );
+                addedRanges.push({ range });
+                newOffset += value.length;
+                continue;
+            }
+
+            if (part.removed) {
+                const actualStart = this.computeActualOffset(normalizedOriginal, originalOffset, lineEnding);
+                const actualLength = this.denormalizeNewlines(value, lineEnding).length;
+                const range = new vscode.Range(
+                    originalEditor.document.positionAt(actualStart),
+                    originalEditor.document.positionAt(actualStart + actualLength)
+                );
+                removedRanges.push({ range });
+                originalOffset += value.length;
+                continue;
+            }
+
+            originalOffset += value.length;
+            newOffset += value.length;
+        }
+
+        const addedDecoration = vscode.window.createTextEditorDecorationType({
+            backgroundColor: 'rgba(46, 160, 67, 0.35)'
+        });
+        const removedDecoration = vscode.window.createTextEditorDecorationType({
+            backgroundColor: 'rgba(248, 81, 73, 0.35)'
+        });
+
+        modifiedEditor.setDecorations(addedDecoration, addedRanges);
+        originalEditor.setDecorations(removedDecoration, removedRanges);
+
+        this.modifiedDiffDecoration = addedDecoration;
+        this.originalDiffDecoration = removedDecoration;
+        this.modifiedDiffEditor = modifiedEditor;
+        this.originalDiffEditor = originalEditor;
+    }
+
+    private async handleLlmModifiedFileContent(jsonData: any): Promise<void> {
+        const data = jsonData?.data;
+        if (!data) {
+            console.error('LLM modified file content missing data payload.');
+            return;
+        }
+
+        let targetPath: string | undefined = data.filePath || data.fileToChange;
+        if (!targetPath) {
+            vscode.window.showErrorMessage('Unable to apply fix: no target file path provided.');
+            return;
+        }
+
+        if (!path.isAbsolute(targetPath)) {
+            targetPath = path.join(this.currentProjectPath, targetPath);
+        }
+
+        const newContentRaw: string = data.modifiedFileContent ?? '';
+        const providedOriginalRaw: string = data.originalFileContent ?? '';
+        const explanation: string = data.explanation ?? '';
+
+        if (!newContentRaw.trim()) {
+            vscode.window.showErrorMessage('LLM fix did not include replacement content.');
+            return;
+        }
+
+        let fileContent: string;
+        try {
+            fileContent = await fs.readFile(targetPath, { encoding: 'utf8' });
+        } catch (error) {
+            console.error('Failed to read target file:', error);
+            vscode.window.showErrorMessage(`Unable to read file: ${targetPath}`);
+            return;
+        }
+
+        if (providedOriginalRaw && this.normalizeNewlines(providedOriginalRaw) !== this.normalizeNewlines(fileContent)) {
+            console.warn('Provided original content does not match the current file on disk. Proceeding with on-disk version.');
+        }
+
+        const lineEnding = fileContent.includes('\r\n') ? '\r\n' : '\n';
+        const normalizedOriginal = this.normalizeNewlines(fileContent);
+        const normalizedNew = this.normalizeNewlines(newContentRaw);
+
+        const originalDoc = await vscode.workspace.openTextDocument(targetPath);
+        const originalEditor = await vscode.window.showTextDocument(originalDoc, vscode.ViewColumn.One);
+
+        const newDoc = await vscode.workspace.openTextDocument({
+            language: originalDoc.languageId || 'java',
+            content: newContentRaw
+        });
+        const newEditor = await vscode.window.showTextDocument(newDoc, { viewColumn: vscode.ViewColumn.Two, preview: false });
+
+        this.clearDiffDecorationsInternal();
+        this.applyDiffHighlights(originalEditor, newEditor, normalizedOriginal, normalizedNew, lineEnding);
+
+        diffChunks.length = 0;
+        const lensRange = new vscode.Range(newDoc.positionAt(0), newDoc.positionAt(0));
+        const newDocText = newDoc.getText();
+        diffChunks.push({
+            range: lensRange,
+            newText: newDocText,
+            originalText: originalDoc.getText(),
+            fullOriginalContent: fileContent,
+            filePath: targetPath,
+            startOffset: 0,
+            endOffset: newDocText.length
+        });
+
+        await vscode.commands.executeCommand('editor.action.codeLens.refresh');
+
+        if (explanation) {
+            vscode.window.setStatusBarMessage(`LLM explanation: ${explanation}`, 5000);
+        }
+    }
 
 }
